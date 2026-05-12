@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+import { runInstall } from "../lib/cli/install.js";
+
+runInstall().then((result) => {
+  if (result?.ok) console.log("ai-code-tracker installed");
+}).catch((error) => {
+  console.error(`[ai-code-tracker] ${error.message}`);
+  process.exitCode = 1;
+});
