@@ -10,6 +10,7 @@ import { buildPendingCommit } from "../tracker/stats.js";
 import { consumeMatchedLines, loadPendingLines, savePendingLines } from "../tracker/lineStore.js";
 import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
 import { archiveDir, authorCsvPath, configPath, pendingCommitPath, pendingLinesPath, trackingMessagePath } from "../tracker/paths.js";
+import { logInfo, logError, startTimer } from "../tracker/logger.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,7 +21,12 @@ export async function runCommitStats(mode, options = {}) {
   const gitRawImpl = options.gitRaw ?? gitRaw;
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
 
-  if (env.AI_CODE_TRACKER_SKIP === "1") return { skipped: "skip-env" };
+  if (env.AI_CODE_TRACKER_SKIP === "1") {
+    await logInfo(repoRoot, "commit-stats", "skipped: skip-env", { mode });
+    return { skipped: "skip-env" };
+  }
+
+  await logInfo(repoRoot, `commit-stats.${mode}`, "enter");
 
   await pruneCsvRecordsIfPossible(repoRoot, gitImpl);
 
@@ -38,6 +44,7 @@ export async function runCommitStats(mode, options = {}) {
 }
 
 async function runPrePush({ repoRoot, now = new Date() }) {
+  const timer = startTimer();
   const files = [pendingLinesPath(repoRoot), pendingCommitPath(repoRoot), trackingMessagePath(repoRoot)];
   const existing = [];
   for (const file of files) {
@@ -49,7 +56,10 @@ async function runPrePush({ repoRoot, now = new Date() }) {
     }
   }
 
-  if (existing.length === 0) return { skipped: "no-pending-files" };
+  if (existing.length === 0) {
+    await logInfo(repoRoot, "pre-push", "skipped: no pending files", { durationMs: timer.elapsedMs() });
+    return { skipped: "no-pending-files" };
+  }
 
   const target = path.join(archiveDir(repoRoot), archiveStamp(now));
   await fs.mkdir(target, { recursive: true });
@@ -58,10 +68,12 @@ async function runPrePush({ repoRoot, now = new Date() }) {
     await fs.rm(file, { force: true });
   }
 
+  await logInfo(repoRoot, "pre-push", "archived pending files", { files: existing.map((f) => path.basename(f)), archive: target, durationMs: timer.elapsedMs() });
   return { archived: existing.map((file) => path.basename(file)), archive: target };
 }
 
 async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
+  const timer = startTimer();
   const diff = await gitRawImpl(["diff", "--cached", "--unified=0"], { cwd: repoRoot });
   const addedLines = removeTrackingFiles(parseAddedLinesFromDiff(diff));
   const pendingLines = await loadPendingLines(repoRoot);
@@ -75,25 +87,43 @@ async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
   await atomicWriteJson(pendingCommitPath(repoRoot), withCommitSource, {
     operation: "write pending commit tracking stats",
   });
+
+  const stagedFiles = Object.keys(addedLines);
+  await logInfo(repoRoot, "pre-commit", "complete", {
+    stagedFiles: stagedFiles.length,
+    totalAddedLines: pendingCommit.total_lines,
+    aiLines: pendingCommit.ai_lines,
+    isAiCommit: withCommitSource.is_ai_commit,
+    durationMs: timer.elapsedMs(),
+  });
   return { written: withCommitSource };
 }
 
 async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
+  const timer = startTimer();
   if (Number(env.AI_CODE_TRACKER_DEPTH || "0") > 0) {
     throw new Error("Refusing recursive ai-code-tracker post-commit execution");
   }
 
   const subject = await gitImpl(["log", "-1", "--pretty=%s"], { cwd: repoRoot });
-  if (subject.includes("[ai-tracking]")) return { skipped: "tracking-commit" };
+  if (subject.includes("[ai-tracking]")) {
+    await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
+    return { skipped: "tracking-commit" };
+  }
 
   const pendingPath = pendingCommitPath(repoRoot);
   let pendingCommit;
   try {
     pendingCommit = JSON.parse(await fs.readFile(pendingPath, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return { skipped: "no-pending-commit" };
+    if (error.code === "ENOENT") {
+      await logInfo(repoRoot, "post-commit", "skipped: no pending commit", { durationMs: timer.elapsedMs() });
+      return { skipped: "no-pending-commit" };
+    }
     throw error;
   }
+
+  await logInfo(repoRoot, "post-commit", "processing commit", { subject, aiLines: pendingCommit.ai_lines, totalLines: pendingCommit.total_lines });
 
   const commitId = await gitImpl(["rev-parse", "HEAD"], { cwd: repoRoot });
   const author = await gitImpl(["log", "-1", "--pretty=%an"], { cwd: repoRoot });
@@ -128,6 +158,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   await fs.rm(pendingPath, { force: true });
   await fs.rm(trackingMessagePath(repoRoot), { force: true });
 
+  await logInfo(repoRoot, "post-commit", "complete", { commitId: commitId.slice(0, 7), author, aiLines: pendingCommit.ai_lines, totalLines: pendingCommit.total_lines, durationMs: timer.elapsedMs() });
   return { committed: true };
 }
 

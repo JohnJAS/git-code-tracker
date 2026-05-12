@@ -7,6 +7,7 @@ import {
   opencodePluginPath,
 } from "../tracker/paths.js";
 import { atomicWriteJson } from "../tracker/lock.js";
+import { logInfo, startTimer } from "../tracker/logger.js";
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
@@ -20,17 +21,24 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
   const mode = args.includes("--check") ? "check" : args.includes("--repair") ? "repair" : "install";
   const cwd = options.cwd ?? process.cwd();
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
+  const timer = startTimer();
+
+  await logInfo(repoRoot, `install.${mode}`, "enter");
 
   if (mode === "check") {
     const result = await checkInstall(repoRoot);
     if (!result.ok) {
+      await logInfo(repoRoot, "install.check", "not installed", { missing: result.missing, durationMs: timer.elapsedMs() });
       throw new Error(`ai-code-tracker is not installed: ${result.missing.join(", ")}`);
     }
+    await logInfo(repoRoot, "install.check", "passed", { durationMs: timer.elapsedMs() });
     return result;
   }
 
   await installIntoRepo(repoRoot);
-  return checkInstall(repoRoot);
+  const result = await checkInstall(repoRoot);
+  await logInfo(repoRoot, `install.${mode}`, "complete", { ok: result.ok, missing: result.missing, durationMs: timer.elapsedMs() });
+  return result;
 }
 
 export async function checkInstall(repoRoot) {
@@ -57,11 +65,13 @@ export async function installIntoRepo(repoRoot) {
   await fs.mkdir(path.join(repoRoot, ".opencode", "plugins"), { recursive: true });
   await ensureOpencodePackage(repoRoot);
 
+  await logInfo(repoRoot, "install", "writing opencode plugin");
   await writeExecutable(
     opencodePluginPath(repoRoot),
     'export { AiCodeTrackerPlugin } from "../skills/ai-code-tracker/scripts/opencode-plugin.js";\n',
   );
 
+  await logInfo(repoRoot, "install", "writing tracker config");
   await atomicWriteJson(configPath(repoRoot), {
     enabled: true,
     ignore: [".ai-tracking/**", ".git/**", "node_modules/**", "dist/**", "build/**"],
@@ -72,6 +82,8 @@ export async function installIntoRepo(repoRoot) {
   });
 
   await updateGitignore(repoRoot);
+
+  await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push"] });
   await injectHook(repoRoot, "pre-commit", HOOK_COMMANDS["pre-commit"]);
   await injectHook(repoRoot, "post-commit", HOOK_COMMANDS["post-commit"]);
   await injectHook(repoRoot, "pre-push", HOOK_COMMANDS["pre-push"]);
@@ -143,6 +155,8 @@ async function updateGitignore(repoRoot) {
     ".ai-tracking/pending-commit.json",
     ".ai-tracking/tracking-message.txt",
     ".ai-tracking/errors.log",
+    ".ai-tracking/plugin.log",
+    ".ai-tracking/plugin.log.*",
     ".ai-tracking/*.lock",
     ".ai-tracking/archive/",
   ];
