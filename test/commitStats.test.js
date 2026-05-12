@@ -9,7 +9,7 @@ import { pendingCommitPath, pendingLinesPath, trackingMessagePath } from "../src
 
 test("pre-commit writes pending commit without staging csv", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
-  await savePendingLines(repoRoot, { "src/a.js": ["ai line"] });
+  await savePendingLines(repoRoot, { "src/a.js": [{ content: "ai line", consumed: false }] });
 
   const diff = `diff --git a/src/a.js b/src/a.js
 --- a/src/a.js
@@ -94,7 +94,7 @@ test("pre-commit does not mark non-opencode process tree as AI commit", async ()
 
 test("post-commit writes csv and consumes matched lines", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
-  await savePendingLines(repoRoot, { "src/a.js": ["ai line", "left"] });
+  await savePendingLines(repoRoot, { "src/a.js": [{ content: "ai line", consumed: false }, { content: "left", consumed: false }] });
   await fs.writeFile(pendingCommitPath(repoRoot), JSON.stringify({
     ai_lines: 1,
     total_lines: 2,
@@ -128,7 +128,7 @@ test("post-commit writes csv and consumes matched lines", async () => {
   const csv = await fs.readFile(path.join(repoRoot, ".ai-tracking", "cyd.csv"), "utf8");
   assert.match(csv, /is_ai_commit/);
   assert.match(csv, /true,abc123,2026-05-05 12:34:56/);
-  assert.deepEqual(await loadPendingLines(repoRoot), { "src/a.js": ["left"] });
+  assert.deepEqual(await loadPendingLines(repoRoot), { "src/a.js": [{ content: "ai line", consumed: true }, { content: "left", consumed: false }] });
   assert(gitCalls.some((args) => args[0] === "commit"));
 });
 

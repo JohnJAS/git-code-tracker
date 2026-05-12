@@ -24,7 +24,7 @@ test("records added lines for edited file", async () => {
   });
 
   assert.deepEqual(await loadPendingLines(repoRoot), {
-    "src/a.js": ["two"],
+    "src/a.js": [{ content: "two", consumed: false }],
   });
 });
 
@@ -90,6 +90,6 @@ test("plugin exposes opencode hook object and records tool before/after events",
   });
 
   assert.deepEqual(await loadPendingLines(repoRoot), {
-    "src/b.js": ["two"],
+    "src/b.js": [{ content: "two", consumed: false }],
   });
 });

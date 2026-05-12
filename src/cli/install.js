@@ -11,11 +11,26 @@ import { logInfo, startTimer } from "../tracker/logger.js";
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
-const HOOK_COMMANDS = {
-  "pre-commit": 'node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit',
-  "post-commit": 'node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit',
-  "pre-push": 'node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push',
+const HOOK_SCRIPTS = {
+  "pre-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit'),
+  "post-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit'),
+  "pre-push": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push'),
 };
+
+function hookScript(command) {
+  const logDir = ".ai-tracking";
+  const tag = "[ai-code-tracker]";
+  return [
+    `__ait_err=$(${command} 2>&1) && __ait_rc=0 || __ait_rc=$?`,
+    `if [ $__ait_rc -ne 0 ]; then`,
+    `  echo "${tag} hook failed (exit $__ait_rc), continuing anyway" >&2`,
+    `  echo "$__ait_err" >&2`,
+    `  mkdir -p "${logDir}" 2>/dev/null`,
+    `  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [ERROR] [hook] ${tag} hook failed (exit $__ait_rc)" >> "${logDir}/plugin.log"`,
+    `  echo "$__ait_err" >> "${logDir}/plugin.log"`,
+    `fi`,
+  ].join("\n  ");
+}
 
 export async function runInstall(args = process.argv.slice(2), options = {}) {
   const mode = args.includes("--check") ? "check" : args.includes("--repair") ? "repair" : "install";
@@ -54,7 +69,7 @@ export async function checkInstall(repoRoot) {
 
   for (const hookName of ["pre-commit", "post-commit", "pre-push"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
-    if (!await hasEffectiveHook(hook, HOOK_COMMANDS[hookName])) missing.push(`${hookName} hook`);
+    if (!await hasEffectiveHook(hook, HOOK_SCRIPTS[hookName])) missing.push(`${hookName} hook`);
   }
 
   return { ok: missing.length === 0, missing };
@@ -84,9 +99,9 @@ export async function installIntoRepo(repoRoot) {
   await updateGitignore(repoRoot);
 
   await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push"] });
-  await injectHook(repoRoot, "pre-commit", HOOK_COMMANDS["pre-commit"]);
-  await injectHook(repoRoot, "post-commit", HOOK_COMMANDS["post-commit"]);
-  await injectHook(repoRoot, "pre-push", HOOK_COMMANDS["pre-push"]);
+  await injectHook(repoRoot, "pre-commit", HOOK_SCRIPTS["pre-commit"]);
+  await injectHook(repoRoot, "post-commit", HOOK_SCRIPTS["post-commit"]);
+  await injectHook(repoRoot, "pre-push", HOOK_SCRIPTS["pre-push"]);
   await ensureAgentsRule(repoRoot);
 }
 
@@ -126,7 +141,7 @@ function removeExistingBlock(content) {
   return content.replace(pattern, "\n");
 }
 
-async function hasEffectiveHook(hook, command) {
+async function hasEffectiveHook(hook, script) {
   let content;
   try {
     content = await fs.readFile(hook, "utf8");
@@ -138,7 +153,7 @@ async function hasEffectiveHook(hook, command) {
   if (blockIndex === -1) return false;
   const endIndex = content.indexOf(END, blockIndex);
   const block = content.slice(blockIndex, endIndex === -1 ? undefined : endIndex);
-  if (!block.includes(command)) return false;
+  if (!block.includes(script)) return false;
 
   const execMatch = content.match(/^exec\b.*$/m);
   return !execMatch || execMatch.index === undefined || blockIndex < execMatch.index;

@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildPendingCommit } from "../src/tracker/stats.js";
 
+const E = (content, consumed = false) => ({ content, consumed });
+
 test("matches AI lines with duplicate-sensitive multiset semantics", () => {
   const pendingLines = {
-    "src/a.js": ["same", "same", "ai only"],
+    "src/a.js": [E("same"), E("same"), E("ai only")],
   };
   const addedLines = {
     "src/a.js": ["same", "same", "same", "human"],
@@ -23,6 +25,38 @@ test("returns an empty pending commit when there are no added lines", () => {
   assert.deepEqual(buildPendingCommit({ pendingLines: {}, addedLines: {} }), {
     ai_lines: 0,
     total_lines: 0,
+    matched_lines: {},
+  });
+});
+
+test("skips already consumed lines when matching", () => {
+  const pendingLines = {
+    "src/a.js": [E("line1", true), E("line1", false), E("line2", false)],
+  };
+  const addedLines = {
+    "src/a.js": ["line1", "line2"],
+  };
+
+  assert.deepEqual(buildPendingCommit({ pendingLines, addedLines }), {
+    ai_lines: 2,
+    total_lines: 2,
+    matched_lines: {
+      "src/a.js": ["line1", "line2"],
+    },
+  });
+});
+
+test("does not match when all pending lines are already consumed", () => {
+  const pendingLines = {
+    "src/a.js": [E("x", true), E("y", true)],
+  };
+  const addedLines = {
+    "src/a.js": ["x", "y"],
+  };
+
+  assert.deepEqual(buildPendingCommit({ pendingLines, addedLines }), {
+    ai_lines: 0,
+    total_lines: 2,
     matched_lines: {},
   });
 });
