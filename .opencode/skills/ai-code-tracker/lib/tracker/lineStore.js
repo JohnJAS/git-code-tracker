@@ -5,7 +5,8 @@ import { atomicWriteJson, withFileLock } from "./lock.js";
 export async function loadPendingLines(repoRoot) {
   const file = pendingLinesPath(repoRoot);
   try {
-    return JSON.parse(await fs.readFile(file, "utf8"));
+    const raw = JSON.parse(await fs.readFile(file, "utf8"));
+    return migrateStore(raw);
   } catch (error) {
     if (error.code === "ENOENT") return {};
     throw error;
@@ -23,13 +24,14 @@ export async function appendPendingLines(repoRoot, filePath, lines, options = {}
   const dedupeExisting = options.dedupeExisting ?? false;
   return withFileLock(lockPath(repoRoot, "pending-lines"), async () => {
     const pending = await loadPendingLines(repoRoot);
-    const existing = new Set(pending[filePath] ?? []);
-    const additions = lines.filter((line) => {
-      if (!countBlankLines && line.trim() === "") return false;
-      if (dedupeExisting && existing.has(line)) return false;
+    const existing = new Set(existingContents(pending, filePath));
+    const additions = [];
+    for (const line of lines) {
+      if (!countBlankLines && line.trim() === "") continue;
+      if (dedupeExisting && existing.has(line)) continue;
       existing.add(line);
-      return true;
-    });
+      additions.push({ content: line, consumed: false });
+    }
     if (additions.length === 0) return pending;
     pending[filePath] = [...(pending[filePath] ?? []), ...additions];
     await savePendingLines(repoRoot, pending);
@@ -41,15 +43,14 @@ export function consumeMatchedLines(pending, matched) {
   const next = normalizeStore(pending);
 
   for (const [filePath, lines] of Object.entries(matched ?? {})) {
-    const current = [...(next[filePath] ?? [])];
-    for (const line of lines) {
-      const index = current.indexOf(line);
-      if (index !== -1) current.splice(index, 1);
-    }
-    if (current.length > 0) {
-      next[filePath] = current;
-    } else {
-      delete next[filePath];
+    const entries = next[filePath] ?? [];
+    const matchPool = [...lines];
+    for (const entry of entries) {
+      if (entry.consumed) continue;
+      const index = matchPool.indexOf(entry.content);
+      if (index === -1) continue;
+      entry.consumed = true;
+      matchPool.splice(index, 1);
     }
   }
 
@@ -58,8 +59,31 @@ export function consumeMatchedLines(pending, matched) {
 
 function normalizeStore(data) {
   const out = {};
-  for (const [filePath, lines] of Object.entries(data ?? {})) {
-    if (Array.isArray(lines) && lines.length > 0) out[filePath] = [...lines];
+  for (const [filePath, entries] of Object.entries(data ?? {})) {
+    if (!Array.isArray(entries) || entries.length === 0) continue;
+    const cleaned = entries.filter(isValidEntry);
+    if (cleaned.length > 0) out[filePath] = cleaned;
   }
   return out;
+}
+
+function isValidEntry(entry) {
+  return entry && typeof entry.content === "string";
+}
+
+function migrateStore(data) {
+  const out = {};
+  for (const [filePath, entries] of Object.entries(data ?? {})) {
+    if (!Array.isArray(entries) || entries.length === 0) continue;
+    out[filePath] = entries.map((entry) =>
+      typeof entry === "string" ? { content: entry, consumed: false } : entry,
+    );
+  }
+  return out;
+}
+
+function existingContents(pending, filePath) {
+  return (pending[filePath] ?? []).map((e) =>
+    typeof e === "string" ? e : e.content,
+  );
 }

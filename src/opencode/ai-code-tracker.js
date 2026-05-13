@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { gitRepoRoot } from "../tracker/git.js";
 import { appendPendingLines } from "../tracker/lineStore.js";
-import { configPath } from "../tracker/paths.js";
-import { logInfo, logError, startTimer } from "../tracker/logger.js";
+import { logInfo, startTimer } from "../tracker/logger.js";
+import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/shared.js";
 
 const beforeSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
@@ -131,14 +131,6 @@ function clearPendingFileEdited(key) {
   pendingFileEditedTimers.delete(key);
 }
 
-async function safeRead(filePath) {
-  try {
-    return await fs.readFile(filePath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
 async function log(client, level, message, extra = {}) {
   try {
     await client?.app?.log?.({
@@ -154,35 +146,3 @@ async function log(client, level, message, extra = {}) {
   }
 }
 
-function addedLines(before, after) {
-  const remaining = new Map();
-  for (const line of String(before).split(/\r?\n/)) {
-    remaining.set(line, (remaining.get(line) ?? 0) + 1);
-  }
-
-  const added = [];
-  for (const line of String(after).split(/\r?\n/)) {
-    const count = remaining.get(line) ?? 0;
-    if (count > 0) {
-      remaining.set(line, count - 1);
-    } else {
-      added.push(line);
-    }
-  }
-  return added;
-}
-
-async function loadConfig(repoRoot) {
-  try {
-    return JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
-  } catch {
-    return { enabled: false };
-  }
-}
-
-function shouldIgnore(filePath, patterns) {
-  return patterns.some((pattern) => {
-    if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -3));
-    return filePath === pattern;
-  });
-}

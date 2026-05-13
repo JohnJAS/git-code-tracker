@@ -5,7 +5,8 @@ import { atomicWriteJson, withFileLock } from "./lock.js";
 export async function loadPendingLines(repoRoot) {
   const file = pendingLinesPath(repoRoot);
   try {
-    return JSON.parse(await fs.readFile(file, "utf8"));
+    const raw = JSON.parse(await fs.readFile(file, "utf8"));
+    return migrateStore(raw);
   } catch (error) {
     if (error.code === "ENOENT") return {};
     throw error;
@@ -70,6 +71,19 @@ function isValidEntry(entry) {
   return entry && typeof entry.content === "string";
 }
 
+function migrateStore(data) {
+  const out = {};
+  for (const [filePath, entries] of Object.entries(data ?? {})) {
+    if (!Array.isArray(entries) || entries.length === 0) continue;
+    out[filePath] = entries.map((entry) =>
+      typeof entry === "string" ? { content: entry, consumed: false } : entry,
+    );
+  }
+  return out;
+}
+
 function existingContents(pending, filePath) {
-  return (pending[filePath] ?? []).map((e) => e.content);
+  return (pending[filePath] ?? []).map((e) =>
+    typeof e === "string" ? e : e.content,
+  );
 }

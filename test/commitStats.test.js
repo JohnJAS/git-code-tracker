@@ -21,7 +21,9 @@ test("pre-commit writes pending commit without staging csv", async () => {
 
   await runCommitStats("pre-commit", {
     repoRoot,
+    env: {},
     gitRaw: async () => diff,
+    processTreeReader: async () => "sh\ngit\nbash",
   });
 
   assert.deepEqual(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")), {
@@ -32,13 +34,14 @@ test("pre-commit writes pending commit without staging csv", async () => {
   });
 });
 
-test("pre-commit marks commits created by AI", async () => {
+test("pre-commit marks commits created by AI via process tree", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
 
   await runCommitStats("pre-commit", {
     repoRoot,
-    env: { AI_CODE_TRACKER_AI_COMMIT: "1" },
+    env: {},
     gitRaw: async () => "",
+    processTreeReader: async () => "sh\ngit\nclaude\nbash",
   });
 
   assert.deepEqual(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")), {
@@ -87,6 +90,58 @@ test("pre-commit does not mark non-opencode process tree as AI commit", async ()
     env: {},
     gitRaw: async () => "",
     processTreeReader: async () => "git.exe\ncmd.exe\nWindowsTerminal.exe",
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, false);
+});
+
+test("pre-commit marks commits created under claude process tree", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => "sh .git/hooks/pre-commit\ngit commit\nclaude\nzsh",
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, true);
+});
+
+test("pre-commit marks commits created under code-agent process tree", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => "sh .git/hooks/pre-commit\ngit commit\ncode-agent run\nbash",
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, true);
+});
+
+test("pre-commit marks commits created under codeagent process tree", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => "sh .git/hooks/pre-commit\ngit commit\ncodeagent\nbash",
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, true);
+});
+
+test("pre-commit does not false-positive on claudia or decode-agent", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => "sh .git/hooks/pre-commit\ngit commit\nclaudia\ndecode-agent\nbash",
   });
 
   assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, false);

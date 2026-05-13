@@ -2,33 +2,57 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { gitRepoRoot } from "../tracker/git.js";
 import { appendPendingLines } from "../tracker/lineStore.js";
-import { configPath } from "../tracker/paths.js";
+import { logInfo, startTimer } from "../tracker/logger.js";
+import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/shared.js";
 
 const beforeSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
 
 export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "" }) {
+  const timer = startTimer();
   const repoRoot = await gitRepoRoot(cwd);
-  const config = await loadConfig(repoRoot);
-  if (!config.enabled) return { skipped: "disabled" };
-
   const relative = path.relative(repoRoot, path.resolve(cwd, filePath)).replaceAll(path.sep, "/");
-  if (shouldIgnore(relative, config.ignore ?? [])) return { skipped: "ignored" };
-  if (before === undefined || before === null) return { skipped: "missing-before-snapshot" };
-  if (before === "") return { skipped: "empty-before-snapshot" };
+
+  const config = await loadConfig(repoRoot);
+  if (!config.enabled) {
+    await logInfo(repoRoot, "recordEditedFile", "skipped: disabled", { file: relative });
+    return { skipped: "disabled" };
+  }
+
+  if (shouldIgnore(relative, config.ignore ?? [])) {
+    await logInfo(repoRoot, "recordEditedFile", "skipped: ignored", { file: relative });
+    return { skipped: "ignored" };
+  }
+  if (before === undefined || before === null) {
+    await logInfo(repoRoot, "recordEditedFile", "skipped: missing before snapshot", { file: relative });
+    return { skipped: "missing-before-snapshot" };
+  }
+  if (before === "") {
+    await logInfo(repoRoot, "recordEditedFile", "skipped: empty before snapshot", { file: relative });
+    return { skipped: "empty-before-snapshot" };
+  }
 
   const added = addedLines(before, after);
   await appendPendingLines(repoRoot, relative, added, {
     countBlankLines: config.count_blank_lines,
     dedupeExisting: true,
   });
+  await logInfo(repoRoot, "recordEditedFile", "recorded added lines", { file: relative, addedLines: added.length, durationMs: timer.elapsedMs() });
   return { recorded: added.length };
 }
 
 export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) => {
   const cwd = worktree ?? directory ?? process.cwd();
 
+  let repoRootForLog;
+  try {
+    repoRootForLog = await gitRepoRoot(cwd);
+  } catch {
+    repoRootForLog = null;
+  }
+
   await log(client, "info", "ai-code-tracker plugin initialized", { cwd });
+  if (repoRootForLog) await logInfo(repoRootForLog, "plugin.init", "ai-code-tracker plugin initialized", { cwd });
 
   return {
     event: async ({ event }) => {
@@ -38,6 +62,8 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
       if (!filePath) return;
 
       const eventCwd = payload.cwd ?? cwd;
+      if (repoRootForLog) await logInfo(repoRootForLog, "event.file-edited", "enter", { file: filePath });
+
       const key = snapshotKey(eventCwd, filePath);
       clearPendingFileEdited(key);
       pendingFileEditedTimers.set(key, setTimeout(async () => {
@@ -59,6 +85,7 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
       const filePath = extractFilePath(tool, args);
       if (!filePath) return;
 
+      if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.before", "capturing snapshot", { tool: String(tool), file: filePath });
       beforeSnapshots.set(snapshotKey(cwd, filePath), await safeRead(path.resolve(cwd, filePath)));
     },
 
@@ -67,6 +94,8 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
       const args = output?.args ?? input?.args ?? {};
       const filePath = extractFilePath(tool, args);
       if (!filePath) return;
+
+      if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.after", "processing edit", { tool: String(tool), file: filePath });
 
       const key = snapshotKey(cwd, filePath);
       clearPendingFileEdited(key);
@@ -102,14 +131,6 @@ function clearPendingFileEdited(key) {
   pendingFileEditedTimers.delete(key);
 }
 
-async function safeRead(filePath) {
-  try {
-    return await fs.readFile(filePath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
 async function log(client, level, message, extra = {}) {
   try {
     await client?.app?.log?.({
@@ -125,35 +146,3 @@ async function log(client, level, message, extra = {}) {
   }
 }
 
-function addedLines(before, after) {
-  const remaining = new Map();
-  for (const line of String(before).split(/\r?\n/)) {
-    remaining.set(line, (remaining.get(line) ?? 0) + 1);
-  }
-
-  const added = [];
-  for (const line of String(after).split(/\r?\n/)) {
-    const count = remaining.get(line) ?? 0;
-    if (count > 0) {
-      remaining.set(line, count - 1);
-    } else {
-      added.push(line);
-    }
-  }
-  return added;
-}
-
-async function loadConfig(repoRoot) {
-  try {
-    return JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
-  } catch {
-    return { enabled: false };
-  }
-}
-
-function shouldIgnore(filePath, patterns) {
-  return patterns.some((pattern) => {
-    if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -3));
-    return filePath === pattern;
-  });
-}

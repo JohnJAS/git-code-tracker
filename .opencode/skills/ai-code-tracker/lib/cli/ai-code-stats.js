@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { git, gitRepoRoot } from "../tracker/git.js";
 import { pruneStaleRecords, readRecords } from "../tracker/csv.js";
+import { logInfo, startTimer } from "../tracker/logger.js";
 
 export async function runAiCodeStats(args = process.argv.slice(2), options = {}) {
+  const timer = startTimer();
   const repoRoot = options.repoRoot ?? await gitRepoRoot(options.cwd ?? process.cwd());
   const gitImpl = options.git ?? git;
+
+  await logInfo(repoRoot, "ai-code-stats", "enter");
+
   await pruneCsvRecordsIfPossible(repoRoot, gitImpl);
   const filters = parseArgs(args);
   let records = await readRecords(repoRoot);
@@ -31,6 +36,15 @@ export async function runAiCodeStats(args = process.argv.slice(2), options = {})
     trackedCommits: records.length,
     recent,
   });
+
+  await logInfo(repoRoot, "ai-code-stats", "complete", {
+    trackedCommits: records.length,
+    totalLines,
+    aiLines,
+    ratio: `${ratio.toFixed(1)}%`,
+    durationMs: timer.elapsedMs(),
+  });
+
   if (!options.silent) console.log(output);
   return { totalLines, aiLines, ratio, aiCodeCommits, aiGeneratedCommits, trackedCommits: records.length, recent, output };
 }

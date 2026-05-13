@@ -206,10 +206,9 @@ function archiveStamp(date) {
 }
 
 async function isAiCreatedCommit(env, options = {}) {
-  if (env.AI_CODE_TRACKER_AI_COMMIT === "1") return true;
-  if (env.AI_CODE_TRACKER_PROCESS_TREE) return includesOpencode(env.AI_CODE_TRACKER_PROCESS_TREE);
+  if (env.AI_CODE_TRACKER_PROCESS_TREE) return includesAiAgent(env.AI_CODE_TRACKER_PROCESS_TREE);
   const processTree = options.processTreeReader ? await options.processTreeReader() : await readProcessTree();
-  return includesOpencode(processTree);
+  return includesAiAgent(processTree);
 }
 
 async function readProcessTree() {
@@ -284,8 +283,10 @@ async function readPsStat(pid, execFileImpl = execFileAsync) {
   }
 }
 
-function includesOpencode(processTree) {
-  return String(processTree || "").split(/\r?\n/).some((command) => /(^|[\\/\s])opencode(?:\.exe)?($|[\\/\s])/i.test(command));
+function includesAiAgent(processTree) {
+  return String(processTree || "").split(/\r?\n/).some((command) =>
+    /(^|[\\/\s])(?:opencode|code-?agent|claude)(?:\.exe)?($|[\\/\s])/i.test(command),
+  );
 }
 
 async function pruneCsvRecordsIfPossible(repoRoot, gitImpl) {

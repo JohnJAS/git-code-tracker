@@ -4,13 +4,15 @@ export function buildPendingCommit({ pendingLines, addedLines }) {
   const matchedLines = {};
 
   for (const [filePath, lines] of Object.entries(addedLines ?? {})) {
-    const pendingForFile = [...(pendingLines?.[filePath] ?? [])];
+    const unconsumed = (pendingLines?.[filePath] ?? [])
+      .filter((e) => !e.consumed)
+      .map((e) => e.content);
     totalLines += lines.length;
 
     for (const line of lines) {
-      const index = pendingForFile.indexOf(line);
+      const index = unconsumed.indexOf(line);
       if (index === -1) continue;
-      pendingForFile.splice(index, 1);
+      unconsumed.splice(index, 1);
       aiLines += 1;
       if (!matchedLines[filePath]) matchedLines[filePath] = [];
       matchedLines[filePath].push(line);

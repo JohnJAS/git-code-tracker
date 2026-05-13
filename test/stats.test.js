@@ -60,3 +60,14 @@ test("does not match when all pending lines are already consumed", () => {
     matched_lines: {},
   });
 });
+
+test("buildPendingCommit matches lines from migrated legacy data", () => {
+  const pendingLines = {
+    "src/a.js": [E("legacy-line"), E("new-line")],
+  };
+  const addedLines = { "src/a.js": ["legacy-line", "human"] };
+
+  const result = buildPendingCommit({ pendingLines, addedLines });
+  assert.equal(result.ai_lines, 1);
+  assert.deepEqual(result.matched_lines, { "src/a.js": ["legacy-line"] });
+});

@@ -32,6 +32,10 @@ export function lockPath(repoRoot, name) {
   return path.join(trackerDir(repoRoot), `${name}.lock`);
 }
 
+export function snapshotDir(repoRoot) {
+  return path.join(trackerDir(repoRoot), "snapshots");
+}
+
 export function authorCsvPath(repoRoot, author) {
   return path.join(trackerDir(repoRoot), `${safeFileName(author)}.csv`);
 }

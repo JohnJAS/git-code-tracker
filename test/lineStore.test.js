@@ -64,3 +64,16 @@ test("ignores matched lines for files not in the store", () => {
     "src/a.js": [E("x", false)],
   });
 });
+
+test("loadPendingLines migrates legacy string array format", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
+  const { pendingLinesPath } = await import("../src/tracker/paths.js");
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  const raw = { "src/a.js": ["old-line-1", "old-line-2"] };
+  await fs.writeFile(pendingLinesPath(repoRoot), JSON.stringify(raw), "utf8");
+
+  const loaded = await loadPendingLines(repoRoot);
+  assert.deepEqual(loaded, {
+    "src/a.js": [E("old-line-1"), E("old-line-2")],
+  });
+});
