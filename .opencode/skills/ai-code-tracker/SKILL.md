@@ -33,13 +33,17 @@ After install or repair, rerun preflight. Continue with the original code task o
 
 If install or repair changed `.opencode/plugins/ai-code-tracker.js`, tell the user to restart the current opencode session before expecting edit tracking to work. opencode loads project plugins at startup, so a session that was already running before installation may not generate `.ai-tracking/pending-lines.json`.
 
-If this skill directory has just been copied into a project, this is enough. The install script self-registers the project plugin, git hooks, `.ai-tracking/` files, and `AGENTS.md` rule from inside `.opencode/skills/ai-code-tracker/`.
+If this skill directory has just been copied into a project, this is enough. The install script self-registers the project plugin, git hooks, Claude Code hooks, `.ai-tracking/` files, and `AGENTS.md` rule from inside `.opencode/skills/ai-code-tracker/`.
 
 ## View Stats
 
 ```bash
 node .opencode/skills/ai-code-tracker/scripts/ai-code-stats.js --last 10
 ```
+
+## Cherry-pick
+
+When cherry-picking commits, always use `git cherry-pick -x` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record. Without `-x`, the cherry-picked commit will be recorded with `ai_lines=0`.
 
 ## Recovery
 
@@ -51,23 +55,15 @@ cat .ai-tracking/errors.log
 
 Tell the user which file is blocking tracking. After the user releases the file lock or deletes a stale `.ai-tracking/*.lock` / `*.tmp` file that no tracker process is using, retry the same opencode edit, `git commit`, or `git push` action. The tracker regenerates the pending data, CSV record, or push archive on the next successful retry.
 
-## AI-created Commits
-
-If opencode creates a user-requested commit, mark that commit as AI-created:
-
-```bash
-AI_CODE_TRACKER_AI_COMMIT=1 git commit -m "message"
-```
-
-Do not set this variable for commits the user creates directly in their own terminal.
-
 ## Notes
 
 - This is project-local only. Do not write to global opencode config or global command directories.
 - To use in another project, copy this directory to `.opencode/skills/ai-code-tracker/`, then ask opencode to use `ai-code-tracker`.
-- `is_ai_commit` means the commit command was executed by AI for the user, not that the code was AI-generated.
+- `is_ai_commit` means the commit was created by an AI agent (opencode, Claude Code, or codeagent), detected via process tree inspection.
 - CSV files are pruned on tracker runs so records for commits no longer reachable from `HEAD` after reset are removed.
+- Cherry-picked commits with `-x` inherit AI line statistics from the source commit.
 - Before `git push`, pending tracking files are archived under `.ai-tracking/archive/` and removed from active tracking so old AI lines do not affect the next editing session.
 - Temporary file and lock failures are logged to `.ai-tracking/errors.log`; the log is ignored by git and the failed operation can be retried after the lock is cleared.
 - AI line tracking is an estimate based on line-content matching, not perfect authorship attribution.
+- Claude Code hooks in `.claude/settings.json` track edits made by Claude Code's Edit/Write/NotebookEdit tools.
 - See `references/design.md` for details.

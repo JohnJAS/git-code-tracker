@@ -217,12 +217,14 @@ async function ensureAgentsRule(repoRoot) {
 Before modifying code in this repository, load the opencode skill \`ai-code-tracker\` and run its preflight check. If tracking is not installed or is broken, ask the user whether to install or repair it. If the user confirms, run the project-level install or repair script automatically, rerun preflight, and continue with code changes only after preflight passes.
 
 After installing or repairing ai-code-tracker, tell the user to restart the current opencode session because project plugins are loaded at opencode startup.
+
+When cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.
 `;
   let content = "";
   if (await exists(agents)) content = await fs.readFile(agents, "utf8");
   if (content.includes("## AI Code Tracker")) {
-    if (!content.includes("restart the current opencode session")) {
-      await fs.writeFile(agents, `${content.trimEnd()}\n\nAfter installing or repairing ai-code-tracker, tell the user to restart the current opencode session because project plugins are loaded at opencode startup.\n`, "utf8");
+    if (!content.includes("cherry-pick -x")) {
+      await fs.writeFile(agents, `${content.trimEnd()}\n\nWhen cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.\n`, "utf8");
     }
     return;
   }
