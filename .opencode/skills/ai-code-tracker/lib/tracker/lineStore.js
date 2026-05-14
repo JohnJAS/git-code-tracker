@@ -22,18 +22,25 @@ export async function savePendingLines(repoRoot, data) {
 export async function appendPendingLines(repoRoot, filePath, lines, options = {}) {
   const countBlankLines = options.countBlankLines ?? false;
   const dedupeExisting = options.dedupeExisting ?? false;
+  const replace = options.replace ?? false;
   return withFileLock(lockPath(repoRoot, "pending-lines"), async () => {
     const pending = await loadPendingLines(repoRoot);
-    const existing = new Set(existingContents(pending, filePath));
+    const base = replace ? [] : (pending[filePath] ?? []);
+    const existing = new Set(base.map((e) => e.content));
     const additions = [];
     for (const line of lines) {
       if (!countBlankLines && line.trim() === "") continue;
       if (dedupeExisting && existing.has(line)) continue;
-      existing.add(line);
       additions.push({ content: line, consumed: false });
     }
-    if (additions.length === 0) return pending;
-    pending[filePath] = [...(pending[filePath] ?? []), ...additions];
+    if (replace && additions.length > 0) {
+      pending[filePath] = additions;
+    } else if (additions.length > 0) {
+      pending[filePath] = [...base, ...additions];
+    }
+    if (replace && additions.length === 0 && pending[filePath]) {
+      delete pending[filePath];
+    }
     await savePendingLines(repoRoot, pending);
     return pending;
   }, { operation: "record pending AI lines" });

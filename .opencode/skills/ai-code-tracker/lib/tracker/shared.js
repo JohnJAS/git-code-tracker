@@ -2,21 +2,77 @@ import fs from "node:fs/promises";
 import { configPath } from "./paths.js";
 
 export function addedLines(before, after) {
-  const remaining = new Map();
-  for (const line of String(before).split(/\r?\n/)) {
-    remaining.set(line, (remaining.get(line) ?? 0) + 1);
-  }
+  const bLines = String(before).split(/\r?\n/);
+  const aLines = String(after).split(/\r?\n/);
+  const diff = myersDiff(bLines, aLines);
+  return diff.filter((op) => op.type === "insert").map((op) => op.line);
+}
 
-  const added = [];
-  for (const line of String(after).split(/\r?\n/)) {
-    const count = remaining.get(line) ?? 0;
-    if (count > 0) {
-      remaining.set(line, count - 1);
-    } else {
-      added.push(line);
+// Myers diff — returns a sequence of {type: "keep"|"delete"|"insert", line} operations
+function myersDiff(a, b) {
+  const n = a.length;
+  const m = b.length;
+  const max = n + m;
+  if (max === 0) return [];
+
+  const v = new Int32Array(2 * max + 1).fill(max + 1);
+  const trace = [];
+  const offset = max;
+
+  v[offset + 1] = 0;
+  let done = false;
+  for (let d = 0; d <= max && !done; d++) {
+    trace.push(Int32Array.from(v));
+    for (let k = -d; k <= d; k += 2) {
+      let x;
+      if (k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1])) {
+        x = v[offset + k + 1];
+      } else {
+        x = v[offset + k - 1] + 1;
+      }
+      let y = x - k;
+      while (x < n && y < m && a[x] === b[y]) { x++; y++; }
+      v[offset + k] = x;
+      if (x >= n && y >= m) { done = true; break; }
     }
   }
-  return added;
+
+  // Backtrack to produce the edit script
+  const ops = [];
+  let x = n, y = m;
+  for (let d = trace.length - 1; d >= 0; d--) {
+    const vPrev = trace[d];
+    const k = x - y;
+    let prevK;
+    if (k === -d || (k !== d && vPrev[offset + k - 1] < vPrev[offset + k + 1])) {
+      prevK = k + 1;
+    } else {
+      prevK = k - 1;
+    }
+    const prevX = vPrev[offset + prevK];
+    const prevY = prevX - prevK;
+
+    // Diagonal (keep)
+    while (x > prevX && y > prevY) {
+      x--; y--;
+      ops.push({ type: "keep", line: a[x] });
+    }
+
+    if (d > 0) {
+      if (x === prevX) {
+        // Insert b[y]
+        y--;
+        ops.push({ type: "insert", line: b[y] });
+      } else {
+        // Delete a[x]
+        x--;
+        ops.push({ type: "delete", line: a[x] });
+      }
+    }
+  }
+
+  ops.reverse();
+  return ops;
 }
 
 export async function loadConfig(repoRoot) {

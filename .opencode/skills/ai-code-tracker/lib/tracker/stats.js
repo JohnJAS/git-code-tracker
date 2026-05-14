@@ -1,4 +1,4 @@
-export function buildPendingCommit({ pendingLines, addedLines }) {
+export function buildPendingCommit({ pendingLines, addedLines, countBlankLines = false }) {
   let totalLines = 0;
   let aiLines = 0;
   const matchedLines = {};
@@ -7,9 +7,10 @@ export function buildPendingCommit({ pendingLines, addedLines }) {
     const unconsumed = (pendingLines?.[filePath] ?? [])
       .filter((e) => !e.consumed)
       .map((e) => e.content);
-    totalLines += lines.length;
+    const counted = countBlankLines ? lines : lines.filter((l) => l.trim() !== "");
+    totalLines += counted.length;
 
-    for (const line of lines) {
+    for (const line of counted) {
       const index = unconsumed.indexOf(line);
       if (index === -1) continue;
       unconsumed.splice(index, 1);

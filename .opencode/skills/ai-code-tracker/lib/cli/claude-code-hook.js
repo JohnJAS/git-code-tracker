@@ -69,6 +69,12 @@ async function handlePre({ repoRoot, absolutePath, relative, toolUseId }) {
     const snapshot = { content: before, filePath: relative, timestamp: Date.now() };
     await fs.writeFile(path.join(dir, `${toolUseId}.json`), JSON.stringify(snapshot), "utf8");
 
+    // Persist the original (first) snapshot for this file so re-edits diff from the true baseline
+    const originalFile = path.join(dir, originalSnapshotName(relative));
+    if (!await exists(originalFile)) {
+      await fs.writeFile(originalFile, JSON.stringify(snapshot), "utf8");
+    }
+
     await logInfo(repoRoot, "claude-code.pre", "captured snapshot", { file: relative });
   } catch (error) {
     await logError(repoRoot, "claude-code.pre", error.message, { file: relative });
@@ -87,17 +93,31 @@ async function handlePost({ repoRoot, absolutePath, relative, toolUseId, config 
       return;
     }
 
+    // Prefer the original (first) snapshot so repeated edits diff from the true baseline
+    const originalFile = path.join(dir, originalSnapshotName(relative));
+    let original;
+    try {
+      original = JSON.parse(await fs.readFile(originalFile, "utf8"));
+    } catch {
+      original = snapshot;
+    }
+
+    const isNewFile = original.content === undefined || original.content === null || original.content === "";
     const after = await safeRead(absolutePath);
-    const added = addedLines(snapshot.content, after);
+    const added = isNewFile ? String(after).split(/\r?\n/) : addedLines(original.content, after);
 
     if (added.length > 0) {
       await appendPendingLines(repoRoot, relative, added, {
         countBlankLines: config.count_blank_lines,
         dedupeExisting: true,
+        replace: true,
       });
+    } else {
+      await appendPendingLines(repoRoot, relative, [], { replace: true });
     }
 
     await fs.rm(snapshotFile, { force: true });
+    // Keep original snapshot alive for potential further edits (stale cleanup will remove it)
     await logInfo(repoRoot, "claude-code.post", "recorded added lines", { file: relative, addedLines: added.length });
   } catch (error) {
     await logError(repoRoot, "claude-code.post", error.message, { file: relative });
@@ -203,6 +223,19 @@ async function cleanStaleSnapshots(repoRoot) {
 
 function toPosixPath(p) {
   return String(p).replaceAll("\\", "/");
+}
+
+function originalSnapshotName(relative) {
+  return `original-${relative.replace(/[^a-zA-Z0-9._-]/g, "_")}.json`;
+}
+
+async function exists(file) {
+  try {
+    await fs.access(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function readStdin() {
