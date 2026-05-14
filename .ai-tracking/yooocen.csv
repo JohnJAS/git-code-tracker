@@ -1,3 +1,4 @@
 author,ai_lines,total_lines,is_ai_commit,commit_id,date,message
 yooocen,0,1288,true,c728122b1ddc702b904d7b3e26680cb669087223,2026-05-13 23:03:11,feat: add Claude Code hook support for AI code tracking
 yooocen,4,55,true,590f0cf98641f759cdd900462e31d412b7e4dfdb,2026-05-14 09:19:36,feat: Windows path compatibility for Claude Code hook
+yooocen,0,162,true,f433959f47db43a53cc9198cc8224c8b39ddc01d,2026-05-14 09:19:45,feat: cherry-pick AI lines inheritance from source commit
