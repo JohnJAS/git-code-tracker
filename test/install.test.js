@@ -120,11 +120,15 @@ test("checkInstall detects tampered plugin file", async () => {
 
   assert.equal((await checkInstall(repoRoot)).ok, true);
 
-  await fs.writeFile(opencodePluginPath(repoRoot), "export {};\n", "utf8");
+  // Tamper with the Claude Code settings to remove tracker hooks (always checked when tool=claude)
+  const settingsFile = path.join(repoRoot, ".claude", "settings.json");
+  const settings = JSON.parse(await fs.readFile(settingsFile, "utf8"));
+  settings.hooks.PreToolUse = [];
+  await fs.writeFile(settingsFile, JSON.stringify(settings), "utf8");
 
   const result = await checkInstall(repoRoot);
   assert.equal(result.ok, false);
-  assert.deepEqual(result.mismatches, ["opencode plugin"]);
+  assert.ok(result.missing.includes("Claude Code hooks"), `expected "Claude Code hooks" in missing, got: ${JSON.stringify(result.missing)}`);
 });
 
 test("checkInstall detects tampered config file", async () => {
@@ -142,13 +146,14 @@ test("checkInstall reports both missing and mismatched files", async () => {
   const repoRoot = await fakeRepo();
   await installIntoRepo(repoRoot);
 
-  await fs.writeFile(opencodePluginPath(repoRoot), "wrong", "utf8");
+  // Remove config (missing) and tamper gitignore (mismatched) — both always checked
   await fs.rm(configPath(repoRoot));
+  await fs.writeFile(path.join(repoRoot, ".gitignore"), "node_modules/\n", "utf8");
 
   const result = await checkInstall(repoRoot);
   assert.equal(result.ok, false);
-  assert.deepEqual(result.missing, ["tracker config"]);
-  assert.ok(result.mismatches.includes("opencode plugin"));
+  assert.ok(result.missing.includes("tracker config"), `expected "tracker config" in missing, got: ${JSON.stringify(result.missing)}`);
+  assert.ok(result.mismatches.some((m) => m.startsWith("gitignore")), `expected gitignore mismatch, got: ${JSON.stringify(result.mismatches)}`);
 });
 
 test("checkInstall detects missing gitignore entries", async () => {
@@ -174,11 +179,11 @@ test("installer injects Claude Code hooks into settings.json", async () => {
   await installIntoRepo(repoRoot);
 
   const settings = JSON.parse(await fs.readFile(path.join(repoRoot, ".claude", "settings.json"), "utf8"));
-  const preHook = settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit");
+  const preHook = settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash");
   assert.ok(preHook);
   assert.match(preHook.hooks[0].command, /claude-code-hook\.js.*pre/);
 
-  const postHook = settings.hooks.PostToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit");
+  const postHook = settings.hooks.PostToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash");
   assert.ok(postHook);
   assert.match(postHook.hooks[0].command, /claude-code-hook\.js.*post/);
 });
@@ -189,7 +194,7 @@ test("installer is idempotent for Claude Code hooks", async () => {
   await installIntoRepo(repoRoot);
 
   const settings = JSON.parse(await fs.readFile(path.join(repoRoot, ".claude", "settings.json"), "utf8"));
-  const preEntries = settings.hooks.PreToolUse.filter((e) => e.matcher === "Edit|Write|NotebookEdit");
+  const preEntries = settings.hooks.PreToolUse.filter((e) => e.matcher === "Edit|Write|NotebookEdit|Bash");
   assert.equal(preEntries.length, 1);
   assert.equal(preEntries[0].hooks.length, 1);
 });
@@ -217,7 +222,7 @@ test("installer merges with existing settings.json", async () => {
   assert.ok(bashHook);
   assert.equal(bashHook.hooks[0].command, "check.sh");
 
-  const trackerHook = settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit");
+  const trackerHook = settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash");
   assert.ok(trackerHook);
 });
 

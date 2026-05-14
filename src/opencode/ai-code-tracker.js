@@ -23,21 +23,13 @@ export async function recordEditedFile({ cwd = process.cwd(), filePath, before, 
     await logInfo(repoRoot, "recordEditedFile", "skipped: ignored", { file: relative });
     return { skipped: "ignored" };
   }
-  if (before === undefined || before === null) {
-    await logInfo(repoRoot, "recordEditedFile", "skipped: missing before snapshot", { file: relative });
-    return { skipped: "missing-before-snapshot" };
-  }
-  if (before === "") {
-    await logInfo(repoRoot, "recordEditedFile", "skipped: empty before snapshot", { file: relative });
-    return { skipped: "empty-before-snapshot" };
-  }
-
-  const added = addedLines(before, after);
+  const isNewFile = before === undefined || before === null || before === "";
+  const added = isNewFile ? String(after).split(/\r?\n/) : addedLines(before, after);
   await appendPendingLines(repoRoot, relative, added, {
     countBlankLines: config.count_blank_lines,
     dedupeExisting: true,
   });
-  await logInfo(repoRoot, "recordEditedFile", "recorded added lines", { file: relative, addedLines: added.length, durationMs: timer.elapsedMs() });
+  await logInfo(repoRoot, "recordEditedFile", "recorded added lines", { file: relative, addedLines: added.length, newFile: isNewFile, durationMs: timer.elapsedMs() });
   return { recorded: added.length };
 }
 

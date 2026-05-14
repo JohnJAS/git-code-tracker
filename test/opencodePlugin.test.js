@@ -28,7 +28,7 @@ test("records added lines for edited file", async () => {
   });
 });
 
-test("skips recording when before snapshot is missing", async () => {
+test("records all lines as added when before snapshot is missing (new file)", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
   await execFileAsync("git", ["init"], { cwd: repoRoot });
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
@@ -40,11 +40,16 @@ test("skips recording when before snapshot is missing", async () => {
     after: "one\ntwo\n",
   });
 
-  assert.deepEqual(result, { skipped: "missing-before-snapshot" });
-  assert.deepEqual(await loadPendingLines(repoRoot), {});
+  assert.deepEqual(result, { recorded: 3 });
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [
+      { content: "one", consumed: false },
+      { content: "two", consumed: false },
+    ],
+  });
 });
 
-test("skips recording when before snapshot is empty", async () => {
+test("records all lines as added when before snapshot is empty (new file)", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
   await execFileAsync("git", ["init"], { cwd: repoRoot });
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
@@ -57,8 +62,13 @@ test("skips recording when before snapshot is empty", async () => {
     after: "one\ntwo\n",
   });
 
-  assert.deepEqual(result, { skipped: "empty-before-snapshot" });
-  assert.deepEqual(await loadPendingLines(repoRoot), {});
+  assert.deepEqual(result, { recorded: 3 });
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [
+      { content: "one", consumed: false },
+      { content: "two", consumed: false },
+    ],
+  });
 });
 
 test("plugin exposes opencode hook object and records tool before/after events", async () => {
@@ -91,5 +101,38 @@ test("plugin exposes opencode hook object and records tool before/after events",
 
   assert.deepEqual(await loadPendingLines(repoRoot), {
     "src/b.js": [{ content: "two", consumed: false }],
+  });
+});
+
+test("plugin records all lines when Write creates a new file", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  // file does not exist yet — safeRead returns ""
+  await plugin["tool.execute.before"]({
+    tool: "write",
+    args: {
+      filePath: "src/new.js",
+    },
+  });
+  // Write tool creates the file
+  await fs.writeFile(path.join(repoRoot, "src/new.js"), "line1\nline2\n", "utf8");
+  await plugin["tool.execute.after"]({
+    tool: "write",
+    args: {
+      filePath: "src/new.js",
+    },
+  });
+
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/new.js": [
+      { content: "line1", consumed: false },
+      { content: "line2", consumed: false },
+    ],
   });
 });

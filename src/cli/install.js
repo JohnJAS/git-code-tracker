@@ -348,8 +348,12 @@ const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", 
 const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
 
 async function deployCommands(repoRoot, tool) {
-  const skillDir = path.dirname(path.dirname(new URL(import.meta.url).pathname));
-  const commandsDir = path.join(skillDir, "commands", tool);
+  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+  let commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
+  if (!await exists(commandsDir)) {
+    const projectRoot = await gitRepoRoot(scriptDir);
+    commandsDir = path.join(projectRoot, ".opencode", "skills", "ai-code-tracker", "commands", tool);
+  }
   const destDir = tool === "opencode"
     ? path.join(repoRoot, ".opencode", "commands")
     : path.join(repoRoot, ".claude", "commands");
