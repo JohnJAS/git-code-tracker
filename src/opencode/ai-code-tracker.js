@@ -6,9 +6,10 @@ import { logInfo, startTimer } from "../tracker/logger.js";
 import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/shared.js";
 
 const beforeSnapshots = new Map();
+const originalSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
 
-export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "" }) {
+export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "", replace = false }) {
   const timer = startTimer();
   const repoRoot = await gitRepoRoot(cwd);
   const relative = path.relative(repoRoot, path.resolve(cwd, filePath)).replaceAll(path.sep, "/");
@@ -28,6 +29,7 @@ export async function recordEditedFile({ cwd = process.cwd(), filePath, before, 
   await appendPendingLines(repoRoot, relative, added, {
     countBlankLines: config.count_blank_lines,
     dedupeExisting: true,
+    replace,
   });
   await logInfo(repoRoot, "recordEditedFile", "recorded added lines", { file: relative, addedLines: added.length, newFile: isNewFile, durationMs: timer.elapsedMs() });
   return { recorded: added.length };
@@ -78,7 +80,10 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
       if (!filePath) return;
 
       if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.before", "capturing snapshot", { tool: String(tool), file: filePath });
-      beforeSnapshots.set(snapshotKey(cwd, filePath), await safeRead(path.resolve(cwd, filePath)));
+      const key = snapshotKey(cwd, filePath);
+      const content = await safeRead(path.resolve(cwd, filePath));
+      beforeSnapshots.set(key, content);
+      if (!originalSnapshots.has(key)) originalSnapshots.set(key, content);
     },
 
     "tool.execute.after": async (input, output) => {
@@ -91,14 +96,16 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
 
       const key = snapshotKey(cwd, filePath);
       clearPendingFileEdited(key);
-      const before = beforeSnapshots.get(key);
+      const before = originalSnapshots.get(key) ?? beforeSnapshots.get(key);
       beforeSnapshots.delete(key);
+      originalSnapshots.delete(key);
 
       await recordEditedFile({
         cwd,
         filePath,
         before,
         after: await safeRead(path.resolve(cwd, filePath)),
+        replace: true,
       });
     },
   };
