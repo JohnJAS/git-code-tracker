@@ -11,3 +11,4 @@ yooocen,91,102,true,fdae48b095627ff434f14e021cb2eaf153af72ec,2026-05-14 10:44:01
 yooocen,52,72,true,0eb6db75ea309d429e33a453c7f7bf7c3fe44871,2026-05-14 14:39:04,fix: track AI lines for new file creation via Write tool
 yooocen,20,21,true,6777a4028b2da630197542738956608e8d1e7fb2,2026-05-14 14:46:43,fix: replace pending lines on re-edit to avoid stale residue
 yooocen,65,122,true,3dc711774655d434ed120455a9654985fd00a6af,2026-05-14 14:52:53,fix: keep original snapshot across re-edits and add multi-edit tests
+yooocen,89,127,true,4c5d61c1a6846f46a1bd633bbfdf8ac7308f063a,2026-05-14 14:58:10,fix: Claude Code hook replaces pending lines on re-edit
