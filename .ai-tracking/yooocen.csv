@@ -15,3 +15,4 @@ yooocen,89,127,true,4c5d61c1a6846f46a1bd633bbfdf8ac7308f063a,2026-05-14 14:58:10
 yooocen,56,66,true,1e0ae2985ac3396a3961ca3eb491134ca803788e,2026-05-14 15:05:59,fix: use Myers diff algorithm for accurate line tracking
 yooocen,16,19,true,f3ad9ad16e6a991a0153584369e132d56c18c60b,2026-05-14 15:14:55,fix: clean original snapshots after each commit
 yooocen,39,63,true,72b50ba75fb940031af2cf35bb2e42001b0bec9f,2026-05-14 15:23:44,docs: add README with project overview and snapshot explanation
+yooocen,22,29,true,3ebcbc956d44e56d405093cada45d70b095ba267,2026-05-14 19:37:19,fix: exclude blank lines from total_lines when count_blank_lines is false
