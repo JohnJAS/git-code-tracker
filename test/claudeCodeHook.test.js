@@ -301,3 +301,96 @@ test("Bash post-hook detects content change in already-modified file (cp overwri
   assert.ok(pending["src/a.js"]);
   assert.ok(pending["src/a.js"].some((e) => e.content === "new-line-from-cp"));
 });
+
+// --- Multi-edit tests (original snapshot persistence) ---
+
+test("re-editing same file replaces pending lines instead of appending", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\n", "utf8");
+
+  // Edit 1: base → base + step1
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_re1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nstep1\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_re1") });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step1"));
+
+  // Edit 2: base + step1 → base + step2
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_re2") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nstep2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_re2") });
+
+  pending = await loadPendingLines(repoRoot);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "step1"), "step1 should not remain as stale residue");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step2"));
+  assert.equal(pending["src/a.js"].length, 1);
+});
+
+test("cumulative additive edits preserve all added lines", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\n", "utf8");
+
+  // Edit 1: base → base + line2
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_add1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nline2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_add1") });
+
+  // Edit 2: base + line2 → base + line2 + line3
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_add2") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nline2\nline3\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_add2") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line2"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line3"));
+});
+
+test("new file created then edited tracks only final lines", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+
+  // Write creates the file
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/new.js", "toolu_nw1") });
+  await fs.writeFile(path.join(repoRoot, "src/new.js"), "v1-line1\nv1-line2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/new.js", "toolu_nw1") });
+
+  // Then edit modifies it
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/new.js", "toolu_nw2") });
+  await fs.writeFile(path.join(repoRoot, "src/new.js"), "v1-line1\nv2-line2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/new.js", "toolu_nw2") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/new.js"].some((e) => e.content === "v1-line1"));
+  assert.ok(pending["src/new.js"].some((e) => e.content === "v2-line2"));
+  assert.ok(!pending["src/new.js"].some((e) => e.content === "v1-line2"), "v1-line2 should not remain");
+});
+
+test("re-editing different files does not interfere", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base-a\n", "utf8");
+  await fs.writeFile(path.join(repoRoot, "src", "b.js"), "base-b\n", "utf8");
+
+  // Edit file a
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_xa1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base-a\na1\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_xa1") });
+
+  // Edit file b
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/b.js", "toolu_xb1") });
+  await fs.writeFile(path.join(repoRoot, "src", "b.js"), "base-b\nb1\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/b.js", "toolu_xb1") });
+
+  // Re-edit file a — should not affect file b
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_xa2") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base-a\na2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_xa2") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "a2"));
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "a1"));
+  assert.ok(pending["src/b.js"].some((e) => e.content === "b1"));
+});
