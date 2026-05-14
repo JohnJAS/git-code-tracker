@@ -108,12 +108,12 @@ async function handleBashPre({ repoRoot, toolUseId }) {
   try {
     await cleanStaleSnapshots(repoRoot);
 
-    const state = await captureGitFileState(repoRoot);
+    const state = await captureGitFileHashes(repoRoot);
     const dir = snapshotDir(repoRoot);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, `bash-${toolUseId}.json`), JSON.stringify(state), "utf8");
 
-    await logInfo(repoRoot, "claude-code.bash-pre", "captured git state");
+    await logInfo(repoRoot, "claude-code.bash-pre", "captured file hashes", { files: Object.keys(state).length });
   } catch (error) {
     await logError(repoRoot, "claude-code.bash-pre", error.message);
   }
@@ -124,52 +124,60 @@ async function handleBashPost({ repoRoot, toolUseId, config }) {
     const dir = snapshotDir(repoRoot);
     const snapshotFile = path.join(dir, `bash-${toolUseId}.json`);
 
-    let prevState;
+    let prevHashes;
     try {
-      prevState = JSON.parse(await fs.readFile(snapshotFile, "utf8"));
+      prevHashes = JSON.parse(await fs.readFile(snapshotFile, "utf8"));
     } catch {
       return;
     }
 
-    const currentState = await captureGitFileState(repoRoot);
-    const prevSet = new Set([...prevState.modified, ...prevState.untracked]);
-    const curSet = new Set([...currentState.modified, ...currentState.untracked]);
+    const currentHashes = await captureGitFileHashes(repoRoot);
+    const { loadPendingLines } = await import("../tracker/lineStore.js");
+    const pending = await loadPendingLines(repoRoot);
+    let trackedCount = 0;
 
-    const newOrChanged = [...curSet].filter((f) => !prevSet.has(f));
+    for (const [file, hash] of Object.entries(currentHashes)) {
+      if (shouldIgnore(file, config.ignore ?? [])) continue;
+      if (pending[file]) continue;
+      if (prevHashes[file] === hash) continue;
 
-    if (newOrChanged.length > 0) {
-      const { loadPendingLines } = await import("../tracker/lineStore.js");
-      const pending = await loadPendingLines(repoRoot);
-
-      for (const file of newOrChanged) {
-        if (shouldIgnore(file, config.ignore ?? [])) continue;
-        if (pending[file]) continue;
-
-        const absolutePath = path.join(repoRoot, file);
-        const content = await safeRead(absolutePath);
-        const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
-        if (lines.length > 0) {
-          await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true });
-        }
+      const absolutePath = path.join(repoRoot, file);
+      const content = await safeRead(absolutePath);
+      const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+      if (lines.length > 0) {
+        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true });
+        trackedCount++;
       }
     }
 
     await fs.rm(snapshotFile, { force: true });
-    await logInfo(repoRoot, "claude-code.bash-post", "processed", { newFiles: newOrChanged.length });
+    await logInfo(repoRoot, "claude-code.bash-post", "processed", { trackedFiles: trackedCount });
   } catch (error) {
     await logError(repoRoot, "claude-code.bash-post", error.message);
   }
 }
 
-async function captureGitFileState(repoRoot) {
-  const [modified, untracked] = await Promise.all([
+async function captureGitFileHashes(repoRoot) {
+  const [modifiedRaw, untrackedRaw] = await Promise.all([
     git(["diff", "--name-only"], { cwd: repoRoot }).catch(() => ""),
     git(["ls-files", "--others", "--exclude-standard"], { cwd: repoRoot }).catch(() => ""),
   ]);
-  return {
-    modified: modified.split("\n").filter(Boolean),
-    untracked: untracked.split("\n").filter(Boolean),
-  };
+  const files = [...new Set([
+    ...modifiedRaw.split("\n").filter(Boolean),
+    ...untrackedRaw.split("\n").filter(Boolean),
+  ])];
+
+  const hashes = {};
+  await Promise.all(files.map(async (file) => {
+    try {
+      const content = await fs.readFile(path.join(repoRoot, file));
+      const { createHash } = await import("node:crypto");
+      hashes[file] = createHash("md5").update(content).digest("hex");
+    } catch {
+      hashes[file] = "";
+    }
+  }));
+  return hashes;
 }
 
 async function cleanStaleSnapshots(repoRoot) {

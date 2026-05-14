@@ -201,7 +201,7 @@ function bashPostInput(repoRoot, toolUseId = "toolu_bash01") {
   });
 }
 
-test("Bash pre-hook captures git file state", async () => {
+test("Bash pre-hook captures file hashes", async () => {
   const repoRoot = await fakeRepo();
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, "src", "a.js"), "hello\n", "utf8");
@@ -209,8 +209,9 @@ test("Bash pre-hook captures git file state", async () => {
   await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bp1") });
 
   const snapshot = JSON.parse(await fs.readFile(path.join(snapshotDir(repoRoot), "bash-toolu_bp1.json"), "utf8"));
-  assert.ok(Array.isArray(snapshot.modified));
-  assert.ok(Array.isArray(snapshot.untracked));
+  assert.ok(snapshot["src/a.js"]);
+  assert.equal(typeof snapshot["src/a.js"], "string");
+  assert.ok(snapshot["src/a.js"].length > 0);
 });
 
 test("Bash post-hook records new file created by shell command", async () => {
@@ -279,4 +280,24 @@ test("Bash post-hook cleans up snapshot file", async () => {
   await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bclean") });
 
   await assert.rejects(fs.access(path.join(snapshotDir(repoRoot), "bash-toolu_bclean.json")));
+});
+
+test("Bash post-hook detects content change in already-modified file (cp overwrite)", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  // File already exists and is modified
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "original\n", "utf8");
+
+  // Pre-hook captures hash of current content
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bover") });
+
+  // cp overwrites with new content (simulating cp src dest)
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "original\nnew-line-from-cp\n", "utf8");
+
+  // Post-hook should detect the hash change and track it
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bover") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"]);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "new-line-from-cp"));
 });
