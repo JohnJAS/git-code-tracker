@@ -4,3 +4,4 @@ yooocen,4,55,true,590f0cf98641f759cdd900462e31d412b7e4dfdb,2026-05-14 09:19:36,f
 yooocen,0,162,true,f433959f47db43a53cc9198cc8224c8b39ddc01d,2026-05-14 09:19:45,feat: cherry-pick AI lines inheritance from source commit
 yooocen,0,17,true,f7a9d040914b398e54865aeb158f62fbd4235558,2026-05-14 09:20:05,fix: add BOM to CSV output for Excel compatibility
 yooocen,70,173,true,b6d9e478824ad43c4f67d54b9ded5d74317e3651,2026-05-14 09:21:30,feat: add slash commands for opencode and Claude Code
+yooocen,0,26,true,5f36789efd6b7c1356f6f136bdbe818fcce82591,2026-05-14 09:21:39,"docs: update skill docs, AGENTS.md rule, and project config"
