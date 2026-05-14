@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { gitRepoRoot } from "../tracker/git.js";
 import {
   configPath,
@@ -98,6 +99,13 @@ export async function checkInstall(repoRoot) {
 
   if (!await hasClaudeHooks(repoRoot)) missing.push("Claude Code hooks");
 
+  for (const file of COMMAND_FILES) {
+    const opencodeCmd = path.join(repoRoot, ".opencode", "commands", file);
+    if (!await exists(opencodeCmd)) missing.push(`opencode command ${file}`);
+    const claudeCmd = path.join(repoRoot, ".claude", "commands", file);
+    if (!await exists(claudeCmd)) missing.push(`Claude Code command ${file}`);
+  }
+
   return { ok: missing.length === 0 && mismatches.length === 0, missing, mismatches };
 }
 
@@ -123,6 +131,9 @@ export async function installIntoRepo(repoRoot) {
   await injectClaudeHooks(repoRoot);
 
   await ensureAgentsRule(repoRoot);
+
+  await logInfo(repoRoot, "install", "deploying commands");
+  await deployCommands(repoRoot);
 }
 
 async function writeExecutable(destination, content) {
@@ -260,6 +271,26 @@ function expectedConfigObject() {
 
 function expectedConfigContent() {
   return `${JSON.stringify(expectedConfigObject(), null, 2)}\n`;
+}
+
+const COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
+
+async function deployCommands(repoRoot) {
+  const skillDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  const commandsDir = path.join(skillDir, "commands");
+  const targets = [
+    { src: path.join(commandsDir, "opencode"), dest: path.join(repoRoot, ".opencode", "commands") },
+    { src: path.join(commandsDir, "claude"), dest: path.join(repoRoot, ".claude", "commands") },
+  ];
+  for (const { src, dest } of targets) {
+    await fs.mkdir(dest, { recursive: true });
+    for (const file of COMMAND_FILES) {
+      const srcFile = path.join(src, file);
+      if (await exists(srcFile)) {
+        await fs.copyFile(srcFile, path.join(dest, file));
+      }
+    }
+  }
 }
 
 async function ensureWritableRepo(repoRoot) {
