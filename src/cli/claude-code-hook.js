@@ -26,21 +26,22 @@ export async function runClaudeCodeHook(mode, options = {}) {
 
   let repoRoot;
   try {
-    repoRoot = await gitRepoRoot(cwd);
+    repoRoot = await gitRepoRoot(toPosixPath(cwd));
   } catch {
     return;
   }
 
-  const relative = path.relative(repoRoot, path.resolve(cwd, filePath)).replaceAll(path.sep, "/");
+  const absolutePath = path.resolve(toPosixPath(cwd), toPosixPath(filePath));
+  const relative = path.relative(repoRoot, absolutePath).replaceAll(path.sep, "/");
   const config = await loadConfig(repoRoot);
 
   if (!config.enabled) return;
   if (shouldIgnore(relative, config.ignore ?? [])) return;
 
   if (mode === "pre") {
-    await handlePre({ repoRoot, absolutePath: path.resolve(cwd, filePath), relative, toolUseId });
+    await handlePre({ repoRoot, absolutePath, relative, toolUseId });
   } else if (mode === "post") {
-    await handlePost({ repoRoot, absolutePath: path.resolve(cwd, filePath), relative, toolUseId, config });
+    await handlePost({ repoRoot, absolutePath, relative, toolUseId, config });
   }
 }
 
@@ -109,6 +110,10 @@ async function cleanStaleSnapshots(repoRoot) {
       // Best-effort cleanup.
     }
   }
+}
+
+function toPosixPath(p) {
+  return String(p).replaceAll("\\", "/");
 }
 
 function readStdin() {

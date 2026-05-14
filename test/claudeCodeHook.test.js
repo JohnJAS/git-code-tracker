@@ -119,6 +119,43 @@ test("hook skips ignored file paths", async () => {
   assert.equal(entries.length, 0);
 });
 
+test("hook normalizes Windows backslash paths to forward slashes", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\r\n", "utf8");
+
+  const winInput = JSON.stringify({
+    cwd: repoRoot.replace(/\//g, "\\"),
+    tool_name: "Edit",
+    tool_input: { file_path: path.resolve(repoRoot, "src/a.js").replace(/\//g, "\\") },
+    tool_use_id: "toolu_win",
+    hook_event_name: "PreToolUse",
+  });
+
+  await runClaudeCodeHook("pre", { stdin: winInput });
+
+  const snapshot = JSON.parse(await fs.readFile(path.join(snapshotDir(repoRoot), "toolu_win.json"), "utf8"));
+  assert.equal(snapshot.filePath, "src/a.js");
+  assert.equal(snapshot.content, "one\r\n");
+});
+
+test("hook handles CRLF line endings in file content", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\r\n", "utf8");
+
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_crlf") });
+
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\r\ntwo\r\nthree\r\n", "utf8");
+
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_crlf") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].length > 0);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "two"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "three"));
+});
+
 test("stale snapshots are cleaned up on pre invocation", async () => {
   const repoRoot = await fakeRepo();
   const dir = snapshotDir(repoRoot);
