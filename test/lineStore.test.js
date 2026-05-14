@@ -92,3 +92,39 @@ test("loadPendingLines migrates legacy string array format", async () => {
     "src/a.js": [E("old-line-1"), E("old-line-2")],
   });
 });
+
+test("replace mode overwrites existing pending lines for a file", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
+
+  await appendPendingLines(repoRoot, "src/a.js", ["old-1", "old-2"]);
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [E("old-1"), E("old-2")],
+  });
+
+  await appendPendingLines(repoRoot, "src/a.js", ["new-1"], { replace: true });
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [E("new-1")],
+  });
+});
+
+test("replace mode clears file entry when no non-blank lines remain", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
+
+  await appendPendingLines(repoRoot, "src/a.js", ["keep-me"]);
+  await appendPendingLines(repoRoot, "src/a.js", [""], { replace: true });
+
+  assert.deepEqual(await loadPendingLines(repoRoot), {});
+});
+
+test("replace mode does not affect other files", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
+
+  await appendPendingLines(repoRoot, "src/a.js", ["a1"]);
+  await appendPendingLines(repoRoot, "src/b.js", ["b1"]);
+  await appendPendingLines(repoRoot, "src/a.js", ["a2"], { replace: true });
+
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [E("a2")],
+    "src/b.js": [E("b1")],
+  });
+});

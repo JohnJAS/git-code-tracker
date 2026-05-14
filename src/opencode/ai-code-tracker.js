@@ -98,7 +98,6 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
       clearPendingFileEdited(key);
       const before = originalSnapshots.get(key) ?? beforeSnapshots.get(key);
       beforeSnapshots.delete(key);
-      originalSnapshots.delete(key);
 
       await recordEditedFile({
         cwd,

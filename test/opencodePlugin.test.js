@@ -136,3 +136,89 @@ test("plugin records all lines when Write creates a new file", async () => {
     ],
   });
 });
+
+test("plugin replaces pending lines on re-edit (no stale residue)", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "original\n", "utf8");
+
+  // Edit 1: "original" → "original\nstep1\n"
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "original\nstep1\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step1"));
+
+  // Edit 2: "original\nstep1\n" → "original\nstep2\n"
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "original\nstep2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  pending = await loadPendingLines(repoRoot);
+  // step1 should be gone (replaced by step2), not left as stale residue
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "step1"), "step1 should not remain as stale residue");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step2"));
+  // Only the diff from original→final: "step2" added
+  assert.equal(pending["src/a.js"].length, 1);
+});
+
+test("plugin preserves cumulative diff across multiple additive edits", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "base\n", "utf8");
+
+  // Edit 1: add line2
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "base\nline2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  // Edit 2: add line3 (line2 kept)
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/a.js"), "base\nline2\nline3\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  const pending = await loadPendingLines(repoRoot);
+  // Original→final: "base\n" → "base\nline2\nline3\n" = added "line2" and "line3"
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line2"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line3"));
+});
+
+test("plugin tracks new file then subsequent edit correctly", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+
+  // Write creates the file
+  await plugin["tool.execute.before"]({ tool: "write", args: { filePath: "src/new.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/new.js"), "v1-line1\nv1-line2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "write", args: { filePath: "src/new.js" } });
+
+  // Then Edit modifies it: replace v1-line2 with v2-line2
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/new.js" } });
+  await fs.writeFile(path.join(repoRoot, "src/new.js"), "v1-line1\nv2-line2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/new.js" } });
+
+  const pending = await loadPendingLines(repoRoot);
+  // Original (empty) → final: all lines added, but v1-line2 is gone
+  assert.ok(pending["src/new.js"].some((e) => e.content === "v1-line1"));
+  assert.ok(pending["src/new.js"].some((e) => e.content === "v2-line2"));
+  assert.ok(!pending["src/new.js"].some((e) => e.content === "v1-line2"), "v1-line2 should not remain");
+});
