@@ -9,3 +9,4 @@ yooocen,120,310,true,167b5888c100d70729e8f7323e10e7356117b1fc,2026-05-14 10:08:3
 yooocen,157,221,true,5746fcb964af9d9c80c614ee4e27c5aca2c07376,2026-05-14 10:39:19,feat: tool-aware install — auto-detect opencode/codeagent vs Claude Code
 yooocen,91,102,true,fdae48b095627ff434f14e021cb2eaf153af72ec,2026-05-14 10:44:01,fix: Bash hook uses content hashes to detect cp overwrites
 yooocen,52,72,true,0eb6db75ea309d429e33a453c7f7bf7c3fe44871,2026-05-14 14:39:04,fix: track AI lines for new file creation via Write tool
+yooocen,20,21,true,6777a4028b2da630197542738956608e8d1e7fb2,2026-05-14 14:46:43,fix: replace pending lines on re-edit to avoid stale residue
