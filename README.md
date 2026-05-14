@@ -113,6 +113,22 @@ node install-to-project.js /path/to/your/project
 
 **修复**：将 `src/` 所有文件同步到 `.opencode/skills/ai-code-tracker/lib/`。开发时需注意每次修改 `src/` 后都要同步。
 
+## 已知限制
+
+### 并行编辑导致 AI 行数偏低
+
+当 AI 工具同时编辑多个文件时（如两个并行的 Edit 操作），每个操作的 hook 独立执行。如果两次编辑涉及相同的代码变更，pre-hook 的快照时序可能出现竞争，导致其中一个文件的 diff 结果不完整，ai_lines < total_lines。
+
+这不是代码 bug，而是并发 hook 执行的固有限制。实际影响很小（通常差 1 行），且只出现在同一 commit 内并行编辑多个文件的场景。
+
+## 卸载
+
+```bash
+node .opencode/skills/ai-code-tracker/scripts/install.js --uninstall
+```
+
+移除所有 git hooks、AI 工具钩子、插件和命令文件。统计数据（`.ai-tracking/authors/`）不会被删除。
+
 ## 开发
 
 ```bash

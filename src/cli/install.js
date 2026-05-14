@@ -38,12 +38,21 @@ function hookScript(command) {
 }
 
 export async function runInstall(args = process.argv.slice(2), options = {}) {
-  const mode = args.includes("--check") ? "check" : args.includes("--repair") ? "repair" : "install";
+  const mode = args.includes("--uninstall") ? "uninstall"
+    : args.includes("--check") ? "check"
+    : args.includes("--repair") ? "repair"
+    : "install";
   const cwd = options.cwd ?? process.cwd();
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
   const timer = startTimer();
 
   await logInfo(repoRoot, `install.${mode}`, "enter");
+
+  if (mode === "uninstall") {
+    await uninstallFromRepo(repoRoot);
+    await logInfo(repoRoot, "install.uninstall", "complete", { durationMs: timer.elapsedMs() });
+    return { ok: true, uninstalled: true };
+  }
 
   if (mode === "check") {
     const result = await checkInstall(repoRoot);
@@ -181,6 +190,47 @@ export async function installIntoRepo(repoRoot) {
   }
 
   await ensureAgentsRule(repoRoot, tool);
+}
+
+async function uninstallFromRepo(repoRoot) {
+  await ensureWritableRepo(repoRoot);
+
+  // Remove git hook blocks
+  for (const hookName of ["pre-commit", "post-commit", "pre-push"]) {
+    const hook = path.join(repoRoot, ".git", "hooks", hookName);
+    if (!await exists(hook)) continue;
+    let content = await fs.readFile(hook, "utf8");
+    content = removeExistingBlock(content).trimEnd();
+    if (!content || content === "#!/bin/sh") {
+      await fs.rm(hook, { force: true });
+    } else {
+      await fs.writeFile(hook, `${content}\n`, "utf8");
+    }
+  }
+
+  // Remove Claude Code hooks
+  await removeClaudeHooks(repoRoot);
+
+  // Remove opencode plugin
+  const plugin = opencodePluginPath(repoRoot);
+  await fs.rm(plugin, { force: true });
+
+  // Remove command files
+  for (const file of OPENCODE_COMMAND_FILES) {
+    await fs.rm(path.join(repoRoot, ".opencode", "commands", file), { force: true });
+  }
+  for (const file of CLAUDE_COMMAND_FILES) {
+    await fs.rm(path.join(repoRoot, ".claude", "commands", file), { force: true });
+  }
+
+  // Remove config
+  await fs.rm(configPath(repoRoot), { force: true });
+
+  // Clean gitignore
+  await cleanGitignore(repoRoot);
+
+  // Clean AGENTS.md
+  await cleanAgentsRule(repoRoot);
 }
 
 async function writeExecutable(destination, content) {
@@ -345,8 +395,8 @@ function expectedConfigContent() {
   return `${JSON.stringify(expectedConfigObject(), null, 2)}\n`;
 }
 
-const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
-const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
+const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
+const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
 
 async function deployCommands(repoRoot, tool) {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -448,6 +498,66 @@ async function hasClaudeHooks(repoRoot) {
   return true;
 }
 
+async function removeClaudeHooks(repoRoot) {
+  const settingsFile = claudeSettingsPath(repoRoot);
+  let settings;
+  try {
+    settings = JSON.parse(await fs.readFile(settingsFile, "utf8"));
+  } catch {
+    return;
+  }
+
+  if (!settings.hooks) { await writeSettings(settingsFile, settings); return; }
+
+  for (const event of ["PreToolUse", "PostToolUse"]) {
+    const arr = settings.hooks[event];
+    if (!Array.isArray(arr)) continue;
+    settings.hooks[event] = arr.filter((entry) => {
+      if (entry.matcher !== CLAUDE_HOOK_MATCHER) return true;
+      entry.hooks = (entry.hooks ?? []).filter((h) => h.command !== `${CLAUDE_HOOK_COMMAND} pre` && h.command !== `${CLAUDE_HOOK_COMMAND} post`);
+      return entry.hooks.length > 0;
+    });
+    if (settings.hooks[event].length === 0) delete settings.hooks[event];
+  }
+
+  await writeSettings(settingsFile, settings);
+}
+
+async function cleanGitignore(repoRoot) {
+  const gitignore = path.join(repoRoot, ".gitignore");
+  if (!await exists(gitignore)) return;
+  let content = await fs.readFile(gitignore, "utf8");
+  const lines = content.split(/\r?\n/);
+  const cleaned = lines.filter((line) => !EXPECTED_GITIGNORE_LINES.includes(line));
+  const result = cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  if (!result) {
+    await fs.rm(gitignore, { force: true });
+  } else {
+    await fs.writeFile(gitignore, `${result}\n`, "utf8");
+  }
+}
+
+async function cleanAgentsRule(repoRoot) {
+  const agents = path.join(repoRoot, "AGENTS.md");
+  if (!await exists(agents)) return;
+  let content = await fs.readFile(agents, "utf8");
+  const marker = "## AI Code Tracker";
+  const idx = content.indexOf(marker);
+  if (idx === -1) return;
+  const before = content.slice(0, idx).trimEnd();
+  const result = before.trimEnd();
+  if (!result) {
+    await fs.rm(agents, { force: true });
+  } else {
+    await fs.writeFile(agents, `${result}\n`, "utf8");
+  }
+}
+
+async function writeSettings(settingsFile, settings) {
+  if (settings.hooks && Object.keys(settings.hooks).length === 0) delete settings.hooks;
+  await fs.writeFile(settingsFile, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+}
+
 async function exists(file) {
   try {
     await fs.access(file);
@@ -459,7 +569,8 @@ async function exists(file) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   runInstall().then((result) => {
-    if (result?.ok) console.log("ai-code-tracker installed");
+    if (result?.uninstalled) console.log("ai-code-tracker uninstalled");
+    else if (result?.ok) console.log("ai-code-tracker installed");
   }).catch((error) => {
     console.error(`[ai-code-tracker] ${error.message}`);
     process.exitCode = 1;
