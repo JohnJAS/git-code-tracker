@@ -18,3 +18,4 @@ yooocen,39,63,true,72b50ba75fb940031af2cf35bb2e42001b0bec9f,2026-05-14 15:23:44,
 yooocen,22,29,true,3ebcbc956d44e56d405093cada45d70b095ba267,2026-05-14 19:37:19,fix: exclude blank lines from total_lines when count_blank_lines is false
 yooocen,7,10,true,039b8da835963d6ff3d02d40f3b5d5274efd8f14,2026-05-14 19:41:27,fix: allow duplicate lines within same batch in appendPendingLines
 yooocen,161,161,true,6fd88135de48f18db079532ef6ad638e672b5ecc,2026-05-14 19:46:16,fix: sync installed lib with latest source fixes
+yooocen,12,12,true,9212d31a4a385f88138f67e01aa1ef1402a676d8,2026-05-14 20:25:40,fix: sync opencode plugin to installed lib
