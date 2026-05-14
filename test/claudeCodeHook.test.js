@@ -178,3 +178,105 @@ test("stale snapshots are cleaned up on pre invocation", async () => {
   assert.ok(!entries.includes("toolu_stale.json"));
   assert.ok(entries.includes("toolu_fresh.json"));
 });
+
+// --- Bash tool hook tests ---
+
+function bashPreInput(repoRoot, toolUseId = "toolu_bash01") {
+  return JSON.stringify({
+    cwd: repoRoot,
+    tool_name: "Bash",
+    tool_input: { command: "cp src/a.js src/b.js" },
+    tool_use_id: toolUseId,
+    hook_event_name: "PreToolUse",
+  });
+}
+
+function bashPostInput(repoRoot, toolUseId = "toolu_bash01") {
+  return JSON.stringify({
+    cwd: repoRoot,
+    tool_name: "Bash",
+    tool_input: { command: "cp src/a.js src/b.js" },
+    tool_use_id: toolUseId,
+    hook_event_name: "PostToolUse",
+  });
+}
+
+test("Bash pre-hook captures git file state", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "hello\n", "utf8");
+
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bp1") });
+
+  const snapshot = JSON.parse(await fs.readFile(path.join(snapshotDir(repoRoot), "bash-toolu_bp1.json"), "utf8"));
+  assert.ok(Array.isArray(snapshot.modified));
+  assert.ok(Array.isArray(snapshot.untracked));
+});
+
+test("Bash post-hook records new file created by shell command", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "hello\n", "utf8");
+
+  // Pre-hook captures state before cp
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bcp1") });
+
+  // Simulate cp creating a new file
+  await fs.writeFile(path.join(repoRoot, "src", "b.js"), "world\nline2\n", "utf8");
+
+  // Post-hook detects new file and records its lines
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bcp1") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/b.js"]);
+  assert.ok(pending["src/b.js"].some((e) => e.content === "world"));
+  assert.ok(pending["src/b.js"].some((e) => e.content === "line2"));
+});
+
+test("Bash post-hook skips files already tracked by Edit/Write hooks", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\n", "utf8");
+
+  // First, Edit hook tracks src/a.js
+  await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_edit1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\ntwo\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_edit1") });
+
+  // Then Bash pre/post — src/a.js is already in pending-lines
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bashdup") });
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bashdup") });
+
+  const pending = await loadPendingLines(repoRoot);
+  // Should not duplicate entries for src/a.js
+  const aLines = pending["src/a.js"];
+  assert.equal(aLines.filter((e) => e.content === "two").length, 1);
+});
+
+test("Bash post-hook skips ignored files", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.writeFile(
+    path.join(repoRoot, ".ai-tracking", "config.json"),
+    JSON.stringify({ enabled: true, ignore: ["dist/**"], count_blank_lines: false }),
+    "utf8",
+  );
+  await fs.mkdir(path.join(repoRoot, "dist"), { recursive: true });
+
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bign") });
+
+  await fs.writeFile(path.join(repoRoot, "dist", "out.js"), "compiled\n", "utf8");
+
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bign") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.equal(pending["dist/out.js"], undefined);
+});
+
+test("Bash post-hook cleans up snapshot file", async () => {
+  const repoRoot = await fakeRepo();
+
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bclean") });
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bclean") });
+
+  await assert.rejects(fs.access(path.join(snapshotDir(repoRoot), "bash-toolu_bclean.json")));
+});

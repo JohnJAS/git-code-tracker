@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
-import { gitRepoRoot } from "../tracker/git.js";
+import { git, gitRepoRoot } from "../tracker/git.js";
 import { appendPendingLines } from "../tracker/lineStore.js";
 import { snapshotDir } from "../tracker/paths.js";
 import { logInfo, logError } from "../tracker/logger.js";
@@ -18,29 +18,43 @@ export async function runClaudeCodeHook(mode, options = {}) {
     return;
   }
 
-  const filePath = input.tool_input?.file_path;
+  const toolName = input.tool_name;
   const toolUseId = input.tool_use_id;
   const cwd = input.cwd ?? process.cwd();
 
-  if (!filePath || !toolUseId) return;
+  if (!toolUseId) return;
 
   let repoRoot;
   try {
-    repoRoot = await gitRepoRoot(cwd);
+    repoRoot = await gitRepoRoot(toPosixPath(cwd));
   } catch {
     return;
   }
 
-  const relative = path.relative(repoRoot, path.resolve(cwd, filePath)).replaceAll(path.sep, "/");
   const config = await loadConfig(repoRoot);
-
   if (!config.enabled) return;
+
+  if (toolName === "Bash") {
+    if (mode === "pre") {
+      await handleBashPre({ repoRoot, toolUseId });
+    } else if (mode === "post") {
+      await handleBashPost({ repoRoot, toolUseId, config });
+    }
+    return;
+  }
+
+  const filePath = input.tool_input?.file_path;
+  if (!filePath) return;
+
+  const absolutePath = path.resolve(toPosixPath(cwd), toPosixPath(filePath));
+  const relative = path.relative(repoRoot, absolutePath).replaceAll(path.sep, "/");
+
   if (shouldIgnore(relative, config.ignore ?? [])) return;
 
   if (mode === "pre") {
-    await handlePre({ repoRoot, absolutePath: path.resolve(cwd, filePath), relative, toolUseId });
+    await handlePre({ repoRoot, absolutePath, relative, toolUseId });
   } else if (mode === "post") {
-    await handlePost({ repoRoot, absolutePath: path.resolve(cwd, filePath), relative, toolUseId, config });
+    await handlePost({ repoRoot, absolutePath, relative, toolUseId, config });
   }
 }
 
@@ -90,6 +104,74 @@ async function handlePost({ repoRoot, absolutePath, relative, toolUseId, config 
   }
 }
 
+async function handleBashPre({ repoRoot, toolUseId }) {
+  try {
+    await cleanStaleSnapshots(repoRoot);
+
+    const state = await captureGitFileState(repoRoot);
+    const dir = snapshotDir(repoRoot);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, `bash-${toolUseId}.json`), JSON.stringify(state), "utf8");
+
+    await logInfo(repoRoot, "claude-code.bash-pre", "captured git state");
+  } catch (error) {
+    await logError(repoRoot, "claude-code.bash-pre", error.message);
+  }
+}
+
+async function handleBashPost({ repoRoot, toolUseId, config }) {
+  try {
+    const dir = snapshotDir(repoRoot);
+    const snapshotFile = path.join(dir, `bash-${toolUseId}.json`);
+
+    let prevState;
+    try {
+      prevState = JSON.parse(await fs.readFile(snapshotFile, "utf8"));
+    } catch {
+      return;
+    }
+
+    const currentState = await captureGitFileState(repoRoot);
+    const prevSet = new Set([...prevState.modified, ...prevState.untracked]);
+    const curSet = new Set([...currentState.modified, ...currentState.untracked]);
+
+    const newOrChanged = [...curSet].filter((f) => !prevSet.has(f));
+
+    if (newOrChanged.length > 0) {
+      const { loadPendingLines } = await import("../tracker/lineStore.js");
+      const pending = await loadPendingLines(repoRoot);
+
+      for (const file of newOrChanged) {
+        if (shouldIgnore(file, config.ignore ?? [])) continue;
+        if (pending[file]) continue;
+
+        const absolutePath = path.join(repoRoot, file);
+        const content = await safeRead(absolutePath);
+        const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+        if (lines.length > 0) {
+          await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true });
+        }
+      }
+    }
+
+    await fs.rm(snapshotFile, { force: true });
+    await logInfo(repoRoot, "claude-code.bash-post", "processed", { newFiles: newOrChanged.length });
+  } catch (error) {
+    await logError(repoRoot, "claude-code.bash-post", error.message);
+  }
+}
+
+async function captureGitFileState(repoRoot) {
+  const [modified, untracked] = await Promise.all([
+    git(["diff", "--name-only"], { cwd: repoRoot }).catch(() => ""),
+    git(["ls-files", "--others", "--exclude-standard"], { cwd: repoRoot }).catch(() => ""),
+  ]);
+  return {
+    modified: modified.split("\n").filter(Boolean),
+    untracked: untracked.split("\n").filter(Boolean),
+  };
+}
+
 async function cleanStaleSnapshots(repoRoot) {
   const dir = snapshotDir(repoRoot);
   let entries;
@@ -109,6 +191,10 @@ async function cleanStaleSnapshots(repoRoot) {
       // Best-effort cleanup.
     }
   }
+}
+
+function toPosixPath(p) {
+  return String(p).replaceAll("\\", "/");
 }
 
 function readStdin() {

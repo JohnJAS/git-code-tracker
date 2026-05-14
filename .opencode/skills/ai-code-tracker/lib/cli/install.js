@@ -208,7 +208,7 @@ const EXPECTED_GITIGNORE_LINES = [
   ".ai-tracking/snapshots/",
 ];
 
-const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit";
+const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
 const CLAUDE_HOOK_COMMAND = 'node ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"';
 
 async function updateGitignore(repoRoot) {

@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" post"
+          }
+        ]
+      }
+    ]
+  }
+}
