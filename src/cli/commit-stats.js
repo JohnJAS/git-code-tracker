@@ -9,7 +9,7 @@ import { parseAddedLinesFromDiff } from "../tracker/diff.js";
 import { buildPendingCommit } from "../tracker/stats.js";
 import { consumeMatchedLines, loadPendingLines, savePendingLines } from "../tracker/lineStore.js";
 import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
-import { archiveDir, authorCsvPath, configPath, pendingCommitPath, pendingLinesPath, trackingMessagePath } from "../tracker/paths.js";
+import { archiveDir, authorCsvPath, configPath, pendingCommitPath, pendingLinesPath, snapshotDir, trackingMessagePath } from "../tracker/paths.js";
 import { logInfo, logError, startTimer } from "../tracker/logger.js";
 
 const execFileAsync = promisify(execFile);
@@ -172,6 +172,9 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   await fs.rm(pendingPath, { force: true });
   await fs.rm(trackingMessagePath(repoRoot), { force: true });
 
+  // Clean up original snapshots so the next edit starts fresh from the committed state
+  await cleanOriginalSnapshots(repoRoot);
+
   await logInfo(repoRoot, "post-commit", "complete", { commitId: commitId.slice(0, 7), author, aiLines: pendingCommit.ai_lines, totalLines: pendingCommit.total_lines, durationMs: timer.elapsedMs() });
   return { committed: true };
 }
@@ -331,6 +334,21 @@ async function findCsvRecord(repoRoot, commitId) {
     return records.find((r) => r.commit_id === commitId || r.commit_id.startsWith(commitId)) ?? null;
   } catch {
     return null;
+  }
+}
+
+async function cleanOriginalSnapshots(repoRoot) {
+  const dir = snapshotDir(repoRoot);
+  let entries;
+  try {
+    entries = await fs.readdir(dir);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.startsWith("original-") && entry.endsWith(".json")) {
+      await fs.rm(path.join(dir, entry), { force: true });
+    }
   }
 }
 
