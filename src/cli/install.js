@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { gitRepoRoot } from "../tracker/git.js";
 import {
   configPath,
@@ -348,7 +349,7 @@ const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", 
 const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
 
 async function deployCommands(repoRoot, tool) {
-  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   let commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
   if (!await exists(commandsDir)) {
     const projectRoot = await gitRepoRoot(scriptDir);
