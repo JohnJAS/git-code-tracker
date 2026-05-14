@@ -65,6 +65,21 @@ test("ignores matched lines for files not in the store", () => {
   });
 });
 
+test("preserves all entries when every line is consumed", () => {
+  const result = consumeMatchedLines(
+    {
+      "src/a.js": [E("x"), E("y")],
+      "src/b.ts": [E("z")],
+    },
+    { "src/a.js": ["x", "y"], "src/b.ts": ["z"] },
+  );
+
+  assert.deepEqual(result, {
+    "src/a.js": [E("x", true), E("y", true)],
+    "src/b.ts": [E("z", true)],
+  });
+});
+
 test("loadPendingLines migrates legacy string array format", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
   const { pendingLinesPath } = await import("../src/tracker/paths.js");

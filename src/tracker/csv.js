@@ -89,11 +89,11 @@ export async function pruneStaleRecords(repoRoot, isCommitInHistory) {
 async function writeRecords(csvPath, records) {
   await fs.mkdir(path.dirname(csvPath), { recursive: true });
   const lines = [CSV_HEADER, ...records.map((record) => formatRecord(normalizeRecord(record)))];
-  await fs.writeFile(csvPath, `${lines.join("\n")}\n`, "utf8");
+  await fs.writeFile(csvPath, `﻿${lines.join("\n")}\n`, "utf8");
 }
 
 export function parseCsv(text) {
-  const rows = parseRows(text);
+  const rows = parseRows(text.replace(/^﻿/, ""));
   if (rows.length === 0) return [];
   const [header, ...dataRows] = rows;
 
