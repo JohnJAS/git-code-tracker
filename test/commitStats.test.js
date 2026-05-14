@@ -147,6 +147,59 @@ test("pre-commit does not false-positive on claudia or decode-agent", async () =
   assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, false);
 });
 
+test("pre-commit detects claude in Windows path with backslash", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => [
+      "C:\\Users\\dev\\.claude\\bin\\claude.exe",
+      "C:\\Program Files\\Git\\bin\\git.exe",
+      "C:\\Windows\\System32\\cmd.exe",
+    ].join("\r\n"),
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, true);
+});
+
+test("pre-commit detects opencode.exe with full Windows path", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => [
+      "git.exe commit -m test",
+      "sh.exe .git/hooks/pre-commit",
+      "C:\\Users\\dev\\go\\bin\\opencode.exe run",
+      "WindowsTerminal.exe",
+    ].join("\r\n"),
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, true);
+});
+
+test("pre-commit does not false-positive on path containing 'claude' substring", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => "",
+    processTreeReader: async () => [
+      "git.exe commit -m test",
+      "sh.exe .git/hooks/pre-commit",
+      "C:\\Users\\claude-chocolate\\app.exe",
+      "cmd.exe",
+    ].join("\r\n"),
+  });
+
+  assert.equal(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")).is_ai_commit, false);
+});
+
 test("post-commit writes csv and consumes matched lines", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
   await savePendingLines(repoRoot, { "src/a.js": [{ content: "ai line", consumed: false }, { content: "left", consumed: false }] });
@@ -185,6 +238,84 @@ test("post-commit writes csv and consumes matched lines", async () => {
   assert.match(csv, /true,abc123,2026-05-05 12:34:56/);
   assert.deepEqual(await loadPendingLines(repoRoot), { "src/a.js": [{ content: "ai line", consumed: true }, { content: "left", consumed: false }] });
   assert(gitCalls.some((args) => args[0] === "commit"));
+});
+
+test("post-commit copies AI lines from cherry-pick source", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+
+  // Simulate the original commit's CSV already exists
+  const originalCsv = path.join(repoRoot, ".ai-tracking", "dev.csv");
+  await fs.writeFile(originalCsv, "author,ai_lines,total_lines,is_ai_commit,commit_id,date,message\ndev,8,20,true,deadbeef,2026-05-10 10:00:00,Add feature\n", "utf8");
+
+  // Cherry-pick: pending-commit has 0 AI lines (pending-lines already consumed)
+  await fs.writeFile(pendingCommitPath(repoRoot), JSON.stringify({
+    ai_lines: 0,
+    total_lines: 20,
+    is_ai_commit: true,
+    matched_lines: {},
+  }), "utf8");
+
+  await runCommitStats("post-commit", {
+    repoRoot,
+    env: {},
+    git: async (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD") return "abc123";
+      if (key.startsWith("merge-base --is-ancestor")) return "";
+      if (key === "rev-parse HEAD") return "abc123";
+      if (key === "log -1 --pretty=%an") return "dev";
+      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";
+      return "";
+    },
+    gitRaw: async (args) => {
+      const key = args.join(" ");
+      if (key === "log -1 --pretty=%B") return "Add feature\n\n(cherry picked from commit deadbeef)\n";
+      if (key === "diff --cached --name-only") return ".ai-tracking/dev.csv\n";
+      return "";
+    },
+  });
+
+  const csv = await fs.readFile(originalCsv, "utf8");
+  const records = csv.trim().split("\n").slice(1);
+  assert.equal(records.length, 2);
+  assert.match(records[0], /^dev,8,20,true,deadbeef/);
+  assert.match(records[1], /^dev,8,20,true,abc123/);
+});
+
+test("post-commit does not copy AI lines when no cherry-pick source", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+
+  await fs.writeFile(pendingCommitPath(repoRoot), JSON.stringify({
+    ai_lines: 0,
+    total_lines: 10,
+    is_ai_commit: false,
+    matched_lines: {},
+  }), "utf8");
+
+  await runCommitStats("post-commit", {
+    repoRoot,
+    env: {},
+    git: async (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD") return "abc123";
+      if (key.startsWith("merge-base --is-ancestor")) return "";
+      if (key === "rev-parse HEAD") return "abc123";
+      if (key === "log -1 --pretty=%an") return "dev";
+      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";
+      return "";
+    },
+    gitRaw: async (args) => {
+      const key = args.join(" ");
+      if (key === "log -1 --pretty=%B") return "Normal commit\n\nNo cherry-pick here\n";
+      if (key === "diff --cached --name-only") return ".ai-tracking/dev.csv\n";
+      return "";
+    },
+  });
+
+  const csv = await fs.readFile(path.join(repoRoot, ".ai-tracking", "dev.csv"), "utf8");
+  assert.match(csv, /dev,0,10,false,abc123/);
 });
 
 test("pre-push archives and clears pending tracking files", async () => {

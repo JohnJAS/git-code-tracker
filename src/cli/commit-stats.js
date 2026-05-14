@@ -131,11 +131,25 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
   const messageSubject = fullMessage.split(/\r?\n/)[0] || subject;
 
+  let aiLines = pendingCommit.ai_lines;
+  let totalLines = pendingCommit.total_lines;
+  if (aiLines === 0 && totalLines > 0) {
+    const source = await findCherryPickSource(repoRoot, fullMessage);
+    if (source) {
+      const sourceRecord = await findCsvRecord(repoRoot, source);
+      if (sourceRecord) {
+        aiLines = sourceRecord.ai_lines;
+        totalLines = sourceRecord.total_lines;
+        await logInfo(repoRoot, "post-commit", "cherry-pick: copied AI lines from source", { source, aiLines, totalLines });
+      }
+    }
+  }
+
   const csvPath = authorCsvPath(repoRoot, author);
   await appendRecord(csvPath, {
     author,
-    ai_lines: pendingCommit.ai_lines,
-    total_lines: pendingCommit.total_lines,
+    ai_lines: aiLines,
+    total_lines: totalLines,
     is_ai_commit: pendingCommit.is_ai_commit === true,
     commit_id: commitId,
     date,
@@ -302,6 +316,21 @@ async function pruneCsvRecordsIfPossible(repoRoot, gitImpl) {
     });
   } catch {
     // Pruning should not block commits; the next successful tracker run can retry.
+  }
+}
+
+async function findCherryPickSource(repoRoot, fullMessage) {
+  const match = fullMessage.match(/\(cherry picked from commit ([0-9a-f]+)\)/);
+  return match?.[1] ?? null;
+}
+
+async function findCsvRecord(repoRoot, commitId) {
+  try {
+    const { readRecords } = await import("../tracker/csv.js");
+    const records = await readRecords(repoRoot);
+    return records.find((r) => r.commit_id === commitId || r.commit_id.startsWith(commitId)) ?? null;
+  } catch {
+    return null;
   }
 }
 
