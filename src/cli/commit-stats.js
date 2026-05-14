@@ -10,6 +10,7 @@ import { buildPendingCommit } from "../tracker/stats.js";
 import { consumeMatchedLines, loadPendingLines, savePendingLines } from "../tracker/lineStore.js";
 import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
 import { archiveDir, authorCsvPath, configPath, pendingCommitPath, pendingLinesPath, snapshotDir, trackingMessagePath } from "../tracker/paths.js";
+import { loadConfig } from "../tracker/shared.js";
 import { logInfo, logError, startTimer } from "../tracker/logger.js";
 
 const execFileAsync = promisify(execFile);
@@ -77,7 +78,8 @@ async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
   const diff = await gitRawImpl(["diff", "--cached", "--unified=0"], { cwd: repoRoot });
   const addedLines = removeTrackingFiles(parseAddedLinesFromDiff(diff));
   const pendingLines = await loadPendingLines(repoRoot);
-  const pendingCommit = buildPendingCommit({ pendingLines, addedLines });
+  const config = await loadConfig(repoRoot);
+  const pendingCommit = buildPendingCommit({ pendingLines, addedLines, countBlankLines: config.count_blank_lines });
 
   const withCommitSource = {
     ...pendingCommit,

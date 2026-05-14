@@ -71,3 +71,25 @@ test("buildPendingCommit matches lines from migrated legacy data", () => {
   assert.equal(result.ai_lines, 1);
   assert.deepEqual(result.matched_lines, { "src/a.js": ["legacy-line"] });
 });
+
+test("buildPendingCommit excludes blank lines from total when countBlankLines is false", () => {
+  const pendingLines = {
+    "src/a.js": [E("line1"), E("line2")],
+  };
+  const addedLines = { "src/a.js": ["line1", "", "line2", "   ", "human"] };
+
+  const result = buildPendingCommit({ pendingLines, addedLines, countBlankLines: false });
+  assert.equal(result.total_lines, 3);
+  assert.equal(result.ai_lines, 2);
+});
+
+test("buildPendingCommit includes blank lines in total when countBlankLines is true", () => {
+  const pendingLines = {
+    "src/a.js": [E("line1"), E(""), E("line2")],
+  };
+  const addedLines = { "src/a.js": ["line1", "", "line2", "human"] };
+
+  const result = buildPendingCommit({ pendingLines, addedLines, countBlankLines: true });
+  assert.equal(result.total_lines, 4);
+  assert.equal(result.ai_lines, 3);
+});
