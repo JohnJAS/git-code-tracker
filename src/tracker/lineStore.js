@@ -31,7 +31,6 @@ export async function appendPendingLines(repoRoot, filePath, lines, options = {}
     for (const line of lines) {
       if (!countBlankLines && line.trim() === "") continue;
       if (dedupeExisting && existing.has(line)) continue;
-      existing.add(line);
       additions.push({ content: line, consumed: false });
     }
     if (replace && additions.length > 0) {

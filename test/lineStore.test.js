@@ -128,3 +128,13 @@ test("replace mode does not affect other files", async () => {
     "src/b.js": [E("b1")],
   });
 });
+
+test("dedupeExisting does not deduplicate within same batch", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-lines-"));
+
+  await appendPendingLines(repoRoot, "src/a.js", ["x", "y", "x", "y"], { dedupeExisting: true });
+
+  assert.deepEqual(await loadPendingLines(repoRoot), {
+    "src/a.js": [E("x"), E("y"), E("x"), E("y")],
+  });
+});
