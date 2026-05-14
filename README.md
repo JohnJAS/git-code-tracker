@@ -6,6 +6,47 @@
 
 ### 整体流程
 
+```mermaid
+sequenceDiagram
+    participant AI as AI 工具 (Claude Code / opencode)
+    participant Hook as Hook 进程
+    participant FS as 文件系统
+    participant Git as Git
+
+    Note over AI,Git: === 编辑阶段：捕获 AI 新增行 ===
+
+    AI->>Hook: Edit/Write 工具调用 (pre)
+    Hook->>FS: 保存文件快照到 snapshots/<toolUseId>.json
+    Hook->>FS: 首次编辑时保存 original-<file>.json
+    AI->>FS: 写入文件内容
+    AI->>Hook: Edit/Write 完成 (post)
+    Hook->>FS: 读取 original 快照 (或即时快照)
+    Hook->>Hook: Myers diff(原始内容, 当前内容) → 新增行
+    Hook->>FS: 写入 pending-lines.json (replace 模式)
+
+    Note over AI,Git: === 提交阶段：统计 AI 行数 ===
+
+    AI->>Git: git commit
+    Git->>Hook: pre-commit hook 触发
+    Hook->>Git: git diff --cached (staged 变更)
+    Hook->>FS: 读取 pending-lines.json
+    Hook->>Hook: 匹配 staged 新增行 ∩ pending lines
+    Hook->>FS: 写入 pending-commit.json {ai_lines, total_lines}
+    Git->>Hook: post-commit hook 触发
+    Hook->>FS: 读取 pending-commit.json
+    Hook->>Hook: 检测进程树判断 is_ai_commit
+    Hook->>FS: 追加记录到 authors/<name>.csv
+    Hook->>FS: 写入 tracking-message.txt
+    Hook->>Git: git add + git commit [ai-tracking]
+    Hook->>FS: 清理 pending 文件 + original 快照
+
+    Note over AI,Git: === 推送阶段：归档 ===
+
+    AI->>Git: git push
+    Git->>Hook: pre-push hook 触发
+    Hook->>FS: 移动 pending 文件到 archive/<timestamp>/
+```
+
 1. AI 工具（opencode / Claude Code）编辑文件前，hook 捕获文件内容快照
 2. 编辑完成后，hook 将文件新内容与快照做 diff，计算出 AI 新增的行
 3. 新增行记录到 `.ai-tracking/pending-lines.json`
@@ -50,9 +91,59 @@ node install-to-project.js /path/to/your/project
 ├── pending-lines.json       # 待匹配的 AI 新增行
 ├── pending-commit.json      # pre-commit 生成的统计（post-commit 消费）
 ├── tracking-message.txt     # 追踪提交的 commit message
+├── plugin.log               # 运行日志（所有 hook 和安装操作的记录）
 ├── snapshots/               # 快照文件
 ├── authors/                 # 按作者分组的 CSV 统计
 └── archive/                 # pre-push 归档的文件
+```
+
+## 日志排查
+
+所有 hook 和安装操作的日志写入 `.ai-tracking/plugin.log`，自动轮转（单文件最大 5MB，保留 3 个归档）。
+
+### 日志格式
+
+```
+[时间戳(UTC)] [级别] [事件来源] 描述 {JSON附加信息}
+```
+
+示例：
+
+```
+[2026-05-14T15:03:11.921Z] [INFO] [commit-stats.pre-commit] enter
+[2026-05-14T15:03:11.945Z] [INFO] [pre-commit] complete {"stagedFiles":23,"totalAddedLines":1288,"aiLines":0,"isAiCommit":true,"durationMs":17}
+[2026-05-14T15:03:11.994Z] [INFO] [post-commit] processing commit {"subject":"fix: xxx","aiLines":3,"totalLines":4}
+[2026-05-14T16:33:45.691Z] [INFO] [claude-code.pre] captured snapshot {"file":"test.js"}
+[2026-05-14T16:33:54.272Z] [INFO] [claude-code.post] recorded added lines {"file":"test.js","addedLines":5}
+```
+
+### 常见事件来源
+
+| 事件 | 含义 |
+|------|------|
+| `claude-code.pre` / `claude-code.post` | Claude Code 工具调用的前后 hook |
+| `claude-code.bash-pre` / `claude-code.bash-post` | Bash 命令执行的前后 hook |
+| `pre-commit` / `post-commit` / `pre-push` | Git hooks 触发的统计流程 |
+| `install` / `install.check` / `install.repair` | 安装/检查/修复操作 |
+| `plugin.init` | opencode 插件初始化 |
+
+### 排查方法
+
+```bash
+# 查看最近的 hook 活动
+tail -20 .ai-tracking/plugin.log
+
+# 查看 commit 统计是否被跳过
+grep "skipped" .ai-tracking/plugin.log
+
+# 查看某个文件的 pending lines 记录
+grep "test.js" .ai-tracking/plugin.log
+
+# 只看错误
+grep "\[ERROR\]" .ai-tracking/plugin.log
+
+# 查看 post-commit 的完整统计结果
+grep "post-commit.*complete" .ai-tracking/plugin.log
 ```
 
 ## AI 代码占比不达 100% 的排查记录
