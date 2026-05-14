@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { gitRepoRoot } from "../tracker/git.js";
@@ -8,6 +10,8 @@ import {
 } from "../tracker/paths.js";
 import { atomicWriteJson } from "../tracker/lock.js";
 import { logInfo, startTimer } from "../tracker/logger.js";
+
+const execFileAsync = promisify(execFile);
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
@@ -64,11 +68,13 @@ export async function checkInstall(repoRoot) {
   const missing = [];
   const mismatches = [];
 
-  const pluginContent = expectedPluginContent();
+  const tool = await detectActiveTool();
+  const isOpencode = tool === "opencode";
+  const isClaude = tool === "claude";
+
   const configContent = expectedConfigContent();
 
   for (const [file, label, expected] of [
-    [opencodePluginPath(repoRoot), "opencode plugin", pluginContent],
     [configPath(repoRoot), "tracker config", configContent],
   ]) {
     if (!await exists(file)) {
@@ -96,22 +102,45 @@ export async function checkInstall(repoRoot) {
     mismatches.push("gitignore (file not found)");
   }
 
-  if (!await hasClaudeHooks(repoRoot)) missing.push("Claude Code hooks");
+  // opencode-specific checks
+  if (isOpencode || (!isOpencode && !isClaude)) {
+    const pluginContent = expectedPluginContent();
+    if (!await exists(opencodePluginPath(repoRoot))) {
+      missing.push("opencode plugin");
+    } else {
+      const actual = await fs.readFile(opencodePluginPath(repoRoot), "utf8");
+      if (actual.trimEnd() !== pluginContent.trimEnd()) mismatches.push("opencode plugin");
+    }
+    for (const file of OPENCODE_COMMAND_FILES) {
+      const cmd = path.join(repoRoot, ".opencode", "commands", file);
+      if (!await exists(cmd)) missing.push(`opencode command ${file}`);
+    }
+  }
+
+  // Claude Code-specific checks
+  if (isClaude || (!isOpencode && !isClaude)) {
+    if (!await hasClaudeHooks(repoRoot)) missing.push("Claude Code hooks");
+    for (const file of CLAUDE_COMMAND_FILES) {
+      const cmd = path.join(repoRoot, ".claude", "commands", file);
+      if (!await exists(cmd)) missing.push(`Claude Code command ${file}`);
+    }
+  }
 
   return { ok: missing.length === 0 && mismatches.length === 0, missing, mismatches };
 }
 
 export async function installIntoRepo(repoRoot) {
   await ensureWritableRepo(repoRoot);
-  await fs.mkdir(path.join(repoRoot, ".opencode", "plugins"), { recursive: true });
-  await ensureOpencodePackage(repoRoot);
 
-  await logInfo(repoRoot, "install", "writing opencode plugin");
-  await writeExecutable(opencodePluginPath(repoRoot), expectedPluginContent());
+  const tool = await detectActiveTool();
+  const isOpencode = tool === "opencode";
+  const isClaude = tool === "claude";
 
+  await logInfo(repoRoot, "install", "detected tool", { tool });
+
+  // Shared: config + gitignore + git hooks
   await logInfo(repoRoot, "install", "writing tracker config");
   await atomicWriteJson(configPath(repoRoot), expectedConfigObject());
-
   await updateGitignore(repoRoot);
 
   await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push"] });
@@ -119,10 +148,38 @@ export async function installIntoRepo(repoRoot) {
   await injectHook(repoRoot, "post-commit", HOOK_SCRIPTS["post-commit"]);
   await injectHook(repoRoot, "pre-push", HOOK_SCRIPTS["pre-push"]);
 
-  await logInfo(repoRoot, "install", "injecting Claude Code hooks");
-  await injectClaudeHooks(repoRoot);
+  // opencode-specific: plugin + commands
+  if (isOpencode) {
+    await fs.mkdir(path.join(repoRoot, ".opencode", "plugins"), { recursive: true });
+    await ensureOpencodePackage(repoRoot);
+    await logInfo(repoRoot, "install", "writing opencode plugin");
+    await writeExecutable(opencodePluginPath(repoRoot), expectedPluginContent());
+    await logInfo(repoRoot, "install", "deploying opencode commands");
+    await deployCommands(repoRoot, "opencode");
+  }
 
-  await ensureAgentsRule(repoRoot);
+  // Claude Code-specific: hooks + commands
+  if (isClaude) {
+    await logInfo(repoRoot, "install", "injecting Claude Code hooks");
+    await injectClaudeHooks(repoRoot);
+    await logInfo(repoRoot, "install", "deploying Claude Code commands");
+    await deployCommands(repoRoot, "claude");
+  }
+
+  // Unknown tool: install both
+  if (!isOpencode && !isClaude) {
+    await fs.mkdir(path.join(repoRoot, ".opencode", "plugins"), { recursive: true });
+    await ensureOpencodePackage(repoRoot);
+    await logInfo(repoRoot, "install", "writing opencode plugin");
+    await writeExecutable(opencodePluginPath(repoRoot), expectedPluginContent());
+    await logInfo(repoRoot, "install", "injecting Claude Code hooks");
+    await injectClaudeHooks(repoRoot);
+    await logInfo(repoRoot, "install", "deploying commands for both tools");
+    await deployCommands(repoRoot, "opencode");
+    await deployCommands(repoRoot, "claude");
+  }
+
+  await ensureAgentsRule(repoRoot, tool);
 }
 
 async function writeExecutable(destination, content) {
@@ -200,6 +257,29 @@ const EXPECTED_GITIGNORE_LINES = [
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
 const CLAUDE_HOOK_COMMAND = 'node ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"';
 
+async function detectActiveTool() {
+  // Check environment variables first
+  if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_SESSION) return "claude";
+  if (process.env.OPENCODE_SESSION || process.env.CODEAGENT_SESSION) return "opencode";
+
+  // Check process tree
+  try {
+    const { stdout } = await execFileAsync("ps", ["-o", "comm=", "-p", String(process.ppid)], { timeout: 3000 });
+    const parent = stdout.trim().toLowerCase();
+    if (parent.includes("claude")) return "claude";
+    if (parent.includes("opencode") || parent.includes("codeagent")) return "opencode";
+  } catch { /* Best-effort detection. */ }
+
+  // Check parent command line on Linux/WSL
+  try {
+    const cmdline = await fs.readFile(`/proc/${process.ppid}/cmdline`, "utf8").catch(() => "");
+    if (cmdline.includes("claude")) return "claude";
+    if (cmdline.includes("opencode") || cmdline.includes("codeagent")) return "opencode";
+  } catch { /* Best-effort detection. */ }
+
+  return "unknown";
+}
+
 async function updateGitignore(repoRoot) {
   const gitignore = path.join(repoRoot, ".gitignore");
   let content = "";
@@ -210,7 +290,7 @@ async function updateGitignore(repoRoot) {
   await fs.writeFile(gitignore, `${content}${prefix}${additions.join("\n")}\n`, "utf8");
 }
 
-async function ensureAgentsRule(repoRoot) {
+async function ensureAgentsRule(repoRoot, tool) {
   const agents = path.join(repoRoot, "AGENTS.md");
   const rule = `## AI Code Tracker
 
@@ -262,6 +342,26 @@ function expectedConfigObject() {
 
 function expectedConfigContent() {
   return `${JSON.stringify(expectedConfigObject(), null, 2)}\n`;
+}
+
+const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
+const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md"];
+
+async function deployCommands(repoRoot, tool) {
+  const skillDir = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+  const commandsDir = path.join(skillDir, "commands", tool);
+  const destDir = tool === "opencode"
+    ? path.join(repoRoot, ".opencode", "commands")
+    : path.join(repoRoot, ".claude", "commands");
+  const files = tool === "opencode" ? OPENCODE_COMMAND_FILES : CLAUDE_COMMAND_FILES;
+
+  await fs.mkdir(destDir, { recursive: true });
+  for (const file of files) {
+    const srcFile = path.join(commandsDir, file);
+    if (await exists(srcFile)) {
+      await fs.copyFile(srcFile, path.join(destDir, file));
+    }
+  }
 }
 
 async function ensureWritableRepo(repoRoot) {
