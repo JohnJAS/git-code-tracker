@@ -55,9 +55,70 @@ node install-to-project.js /path/to/your/project
 └── archive/                 # pre-push 归档的文件
 ```
 
+## AI 代码占比不达 100% 的排查记录
+
+### 1. Write 创建新文件未追踪
+
+**现象**：AI 用 Write 工具创建新文件，AI 行数为 0。
+
+**原因**：`recordEditedFile` 在 `before` 为空时直接跳过，不记录新增行。
+
+**修复**：`before` 为空时视为新文件，将 `after` 的全部行作为新增行记录。
+
+### 2. 多次编辑同一文件产生残留行
+
+**现象**：AI 编辑同一文件两次（如 A→B→C），pending lines 中保留了第一次编辑的中间状态行（B），导致行数膨胀，匹配率下降。
+
+**原因**：每次 post-hook 将 diff 结果追加到 pending lines，没有清除上一次的记录。
+
+**修复**：引入原始快照（originalSnapshot），post-hook 始终从第一次编辑前的基线做 diff。使用 `replace: true` 模式覆盖而非追加 pending lines。
+
+### 3. Multiset diff 低估新增行数
+
+**现象**：pending lines 行数少于 git diff 实际行数（如 89/127）。
+
+**原因**：旧 diff 算法用 multiset（袋集合）匹配，忽略行位置。当行顺序变化时（删除后重排），无法正确识别所有新增行。
+
+**修复**：替换为 Myers diff 算法，按位置匹配，和 `git diff` 行为一致。
+
+### 4. 原始快照跨 commit 未清理
+
+**现象**：commit 后再次编辑同一文件，diff 基线是上一次 commit 前的状态，导致匹配偏差（如 56/66）。
+
+**原因**：`original-*.json` 快照在 commit 后没有被清理，下次编辑时仍从旧基线 diff。
+
+**修复**：post-commit hook 中增加 `cleanOriginalSnapshots()`，清理所有原始快照文件。
+
+### 5. total_lines 包含空行但 pending lines 不含空行
+
+**现象**：非空行全部匹配，但 total_lines 大于 ai_lines（如 39/63）。
+
+**原因**：`buildPendingCommit` 用 git diff 的全部行计算 total_lines，但 pending lines 在 `count_blank_lines: false` 时过滤了空行，分母比分子大。
+
+**修复**：`buildPendingCommit` 接受 `countBlankLines` 参数，计算 total_lines 时同步过滤空行。
+
+### 6. 同一批次内重复行被错误去重
+
+**现象**：文件中有重复内容的行（如测试代码），pending lines 去重后行数少于 diff 行数（如 22/29）。
+
+**原因**：`appendPendingLines` 的 `dedupeExisting` 在添加每行后执行 `existing.add(line)`，导致同一批次输入中的重复行也被跳过。
+
+**修复**：去掉 `existing.add(line)`，`dedupeExisting` 只检查已有的 base 记录，同一批次内的重复行各自保留。
+
+### 7. 安装目录 lib 未同步最新修复
+
+**现象**：所有修复都已提交，但 commit 统计仍未改善。
+
+**原因**：git hooks 和 Claude Code hooks 运行的是 `.opencode/skills/ai-code-tracker/lib/` 下的安装副本，不是 `src/`。修改 `src/` 后没有同步到 lib。
+
+**修复**：将 `src/` 所有文件同步到 `.opencode/skills/ai-code-tracker/lib/`。开发时需注意每次修改 `src/` 后都要同步。
+
 ## 开发
 
 ```bash
 # 运行测试
 npm test
+
+# 修改 src 后同步到安装目录
+cp -r src/* .opencode/skills/ai-code-tracker/lib/
 ```
