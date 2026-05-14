@@ -22,3 +22,4 @@ yooocen,12,12,true,9212d31a4a385f88138f67e01aa1ef1402a676d8,2026-05-14 20:25:40,
 yooocen,31,31,true,312d83db09d21364b21743ca6e4c7eb9ebbe0202,2026-05-14 20:39:08,docs: add troubleshooting guide for AI ratio < 100%
 yooocen,102,102,true,126ad0dcc0022166b8179b63125f069811c902c6,2026-05-14 21:22:07,fix: auto-detect git path on Windows to resolve PATH issues
 yooocen,3,4,true,c76810638a18e57a6609db011c13383316e6203a,2026-05-14 22:06:19,fix: use fileURLToPath instead of URL.pathname for Windows compat
+yooocen,208,217,true,0a7c52b8462f15db7ce0bbe5c9d528b31c83d664,2026-05-14 22:22:00,feat: add uninstall mode and document concurrency limitation
