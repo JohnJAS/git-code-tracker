@@ -14,3 +14,4 @@ yooocen,65,122,true,3dc711774655d434ed120455a9654985fd00a6af,2026-05-14 14:52:53
 yooocen,89,127,true,4c5d61c1a6846f46a1bd633bbfdf8ac7308f063a,2026-05-14 14:58:10,fix: Claude Code hook replaces pending lines on re-edit
 yooocen,56,66,true,1e0ae2985ac3396a3961ca3eb491134ca803788e,2026-05-14 15:05:59,fix: use Myers diff algorithm for accurate line tracking
 yooocen,16,19,true,f3ad9ad16e6a991a0153584369e132d56c18c60b,2026-05-14 15:14:55,fix: clean original snapshots after each commit
+yooocen,39,63,true,72b50ba75fb940031af2cf35bb2e42001b0bec9f,2026-05-14 15:23:44,docs: add README with project overview and snapshot explanation
