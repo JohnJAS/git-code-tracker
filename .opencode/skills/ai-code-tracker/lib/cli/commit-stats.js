@@ -113,6 +113,12 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     return { skipped: "tracking-commit" };
   }
 
+  const parentCount = await gitImpl(["rev-parse", "--verify", "HEAD^2"], { cwd: repoRoot }).then(() => 2).catch(() => 1);
+  if (parentCount > 1) {
+    await logInfo(repoRoot, "post-commit", "skipped: merge commit", { subject, parents: parentCount, durationMs: timer.elapsedMs() });
+    return { skipped: "merge-commit" };
+  }
+
   const pendingPath = pendingCommitPath(repoRoot);
   let pendingCommit;
   try {
