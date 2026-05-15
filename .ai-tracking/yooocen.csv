@@ -26,3 +26,4 @@ yooocen,208,217,true,0a7c52b8462f15db7ce0bbe5c9d528b31c83d664,2026-05-14 22:22:0
 yooocen,70,70,true,ad4b41e3038c5cb455bccf6b507489715140695a,2026-05-14 22:41:20,docs: add execution flow diagram and log troubleshooting guide
 yooocen,10,10,true,eea366f1b72cc9311462d4504d25f92662260af4,2026-05-15 09:08:57,fix: skip merge commits in post-commit tracking
 yooocen,51,54,true,f9d0479f03e6f039d1d86eefce6611990404510d,2026-05-15 09:49:36,feat: respect enabled and auto_tracking_commit config in git hooks
+yooocen,22,28,true,ebe6dd88c1ebcdaf5de34295dc6a0c4c06c72d3f,2026-05-15 09:58:03,refactor: make config.json local-only and implement all config options
