@@ -134,9 +134,9 @@ async function handleBashBefore({ cwd, tool, args }) {
     const hashes = await captureGitFileHashes(repoRoot);
     const toolUseId = args.id ?? args.toolUseId ?? Date.now().toString();
     bashSnapshots.set(toolUseId, { repoRoot, hashes });
-    if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.before", "captured bash file hashes", { files: Object.keys(hashes).length });
+    await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(hashes).length });
   } catch (error) {
-    if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.before", `bash-pre error: ${error.message}`);
+    await logInfo(cwd, "tool.execute.before", `bash-pre error: ${error.message}`);
   }
 }
 
@@ -170,9 +170,9 @@ async function handleBashAfter({ cwd, tool, args }) {
       }
     }
 
-    if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.after", "bash-post processed", { trackedFiles: trackedCount });
+    await logInfo(repoRoot, "tool.execute.after", "bash-post processed", { trackedFiles: trackedCount });
   } catch (error) {
-    if (repoRootForLog) await logInfo(repoRootForLog, "tool.execute.after", `bash-post error: ${error.message}`);
+    await logInfo(cwd, "tool.execute.after", `bash-post error: ${error.message}`);
   }
 }
 
