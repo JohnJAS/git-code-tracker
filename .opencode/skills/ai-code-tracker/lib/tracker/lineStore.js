@@ -88,9 +88,3 @@ function migrateStore(data) {
   }
   return out;
 }
-
-function existingContents(pending, filePath) {
-  return (pending[filePath] ?? []).map((e) =>
-    typeof e === "string" ? e : e.content,
-  );
-}

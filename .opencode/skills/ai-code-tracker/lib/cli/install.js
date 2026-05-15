@@ -16,12 +16,22 @@ const execFileAsync = promisify(execFile);
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
-const HOOK_SCRIPTS = {
-  "pre-commit": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit'),
-  "post-commit": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit'),
-  "pre-push": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push'),
-  "post-rewrite": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" prune'),
-};
+
+function skillRelativeDir(repoRoot) {
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const rel = path.relative(repoRoot, path.resolve(scriptDir, "..", ".."));
+  return rel.replace(/\\/g, "/");
+}
+
+function hookScriptsForRepo(repoRoot) {
+  const base = skillRelativeDir(repoRoot);
+  return {
+    "pre-commit": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" pre-commit`),
+    "post-commit": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" post-commit`),
+    "pre-push": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" pre-push`),
+    "post-rewrite": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" prune`),
+  };
+}
 
 function hookScript(command) {
   const logDir = ".ai-tracking";
@@ -49,14 +59,16 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
 
   await logInfo(repoRoot, `install.${mode}`, "enter");
 
+  const hookScripts = hookScriptsForRepo(repoRoot);
+
   if (mode === "uninstall") {
-    await uninstallFromRepo(repoRoot);
+    await uninstallFromRepo(repoRoot, hookScripts);
     await logInfo(repoRoot, "install.uninstall", "complete", { durationMs: timer.elapsedMs() });
     return { ok: true, uninstalled: true };
   }
 
   if (mode === "check") {
-    const result = await checkInstall(repoRoot);
+    const result = await checkInstall(repoRoot, hookScripts);
     if (!result.ok) {
       const details = [
         ...result.missing.map((m) => `missing: ${m}`),
@@ -69,13 +81,13 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
     return result;
   }
 
-  await installIntoRepo(repoRoot);
-  const result = await checkInstall(repoRoot);
+  await installIntoRepo(repoRoot, hookScripts);
+  const result = await checkInstall(repoRoot, hookScripts);
   await logInfo(repoRoot, `install.${mode}`, "complete", { ok: result.ok, missing: result.missing, mismatches: result.mismatches, durationMs: timer.elapsedMs() });
   return result;
 }
 
-export async function checkInstall(repoRoot) {
+export async function checkInstall(repoRoot, hookScripts) {
   const missing = [];
   const mismatches = [];
 
@@ -85,7 +97,7 @@ export async function checkInstall(repoRoot) {
 
   for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
-    if (!await hasEffectiveHook(hook, HOOK_SCRIPTS[hookName])) missing.push(`${hookName} hook`);
+    if (!await hasEffectiveHook(hook, hookScripts[hookName])) missing.push(`${hookName} hook`);
   }
 
   const gitignorePath = path.join(repoRoot, ".gitignore");
@@ -125,7 +137,7 @@ export async function checkInstall(repoRoot) {
   return { ok: missing.length === 0 && mismatches.length === 0, missing, mismatches };
 }
 
-export async function installIntoRepo(repoRoot) {
+export async function installIntoRepo(repoRoot, hookScripts) {
   await ensureWritableRepo(repoRoot);
 
   const tool = await detectActiveTool();
@@ -142,10 +154,10 @@ export async function installIntoRepo(repoRoot) {
   await updateGitignore(repoRoot);
 
   await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push", "post-rewrite"] });
-  await injectHook(repoRoot, "pre-commit", HOOK_SCRIPTS["pre-commit"]);
-  await injectHook(repoRoot, "post-commit", HOOK_SCRIPTS["post-commit"]);
-  await injectHook(repoRoot, "pre-push", HOOK_SCRIPTS["pre-push"]);
-  await injectHook(repoRoot, "post-rewrite", HOOK_SCRIPTS["post-rewrite"]);
+  await injectHook(repoRoot, "pre-commit", hookScripts["pre-commit"]);
+  await injectHook(repoRoot, "post-commit", hookScripts["post-commit"]);
+  await injectHook(repoRoot, "pre-push", hookScripts["pre-push"]);
+  await injectHook(repoRoot, "post-rewrite", hookScripts["post-rewrite"]);
 
   // opencode-specific: plugin + commands
   if (isOpencode) {
@@ -181,7 +193,7 @@ export async function installIntoRepo(repoRoot) {
   await ensureAgentsRule(repoRoot, tool);
 }
 
-async function uninstallFromRepo(repoRoot) {
+async function uninstallFromRepo(repoRoot, hookScripts) {
   await ensureWritableRepo(repoRoot);
 
   // Remove git hook blocks
@@ -296,7 +308,11 @@ const EXPECTED_GITIGNORE_LINES = [
 ];
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
-const CLAUDE_HOOK_COMMAND = 'node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"';
+
+function claudeHookCommand(repoRoot) {
+  const base = skillRelativeDir(repoRoot);
+  return `node --experimental-vm-modules "${base}/scripts/claude-code-hook.js"`;
+}
 
 async function detectActiveTool() {
   // Check environment variables first
@@ -379,20 +395,12 @@ function expectedConfigObject() {
   };
 }
 
-function expectedConfigContent() {
-  return `${JSON.stringify(expectedConfigObject(), null, 2)}\n`;
-}
-
 const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
 const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
 
 async function deployCommands(repoRoot, tool) {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  let commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
-  if (!await exists(commandsDir)) {
-    const projectRoot = await gitRepoRoot(scriptDir);
-    commandsDir = path.join(projectRoot, ".opencode", "skills", "ai-code-tracker", "commands", tool);
-  }
+  const commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
   const destDir = tool === "opencode"
     ? path.join(repoRoot, ".opencode", "commands")
     : path.join(repoRoot, ".claude", "commands");
@@ -430,7 +438,7 @@ async function injectClaudeHooks(repoRoot) {
 
   settings.hooks = settings.hooks ?? {};
 
-  const expected = expectedClaudeHooks();
+  const expected = expectedClaudeHooks(repoRoot);
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const hookDef = expected[event][0];
     const arr = settings.hooks[event] ?? [];
@@ -447,18 +455,19 @@ async function injectClaudeHooks(repoRoot) {
   await fs.writeFile(settingsFile, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
-function expectedClaudeHooks() {
+function expectedClaudeHooks(repoRoot) {
+  const cmd = claudeHookCommand(repoRoot);
   return {
     PreToolUse: [
       {
         matcher: CLAUDE_HOOK_MATCHER,
-        hooks: [{ type: "command", command: `${CLAUDE_HOOK_COMMAND} pre` }],
+        hooks: [{ type: "command", command: `${cmd} pre` }],
       },
     ],
     PostToolUse: [
       {
         matcher: CLAUDE_HOOK_MATCHER,
-        hooks: [{ type: "command", command: `${CLAUDE_HOOK_COMMAND} post` }],
+        hooks: [{ type: "command", command: `${cmd} post` }],
       },
     ],
   };
@@ -473,7 +482,7 @@ async function hasClaudeHooks(repoRoot) {
     return false;
   }
 
-  const expected = expectedClaudeHooks();
+  const expected = expectedClaudeHooks(repoRoot);
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const hookDef = expected[event][0];
     const arr = settings.hooks?.[event];
@@ -497,12 +506,13 @@ async function removeClaudeHooks(repoRoot) {
 
   if (!settings.hooks) { await writeSettings(settingsFile, settings); return; }
 
+  const cmd = claudeHookCommand(repoRoot);
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const arr = settings.hooks[event];
     if (!Array.isArray(arr)) continue;
     settings.hooks[event] = arr.filter((entry) => {
       if (entry.matcher !== CLAUDE_HOOK_MATCHER) return true;
-      entry.hooks = (entry.hooks ?? []).filter((h) => h.command !== `${CLAUDE_HOOK_COMMAND} pre` && h.command !== `${CLAUDE_HOOK_COMMAND} post`);
+      entry.hooks = (entry.hooks ?? []).filter((h) => h.command !== `${cmd} pre` && h.command !== `${cmd} post`);
       return entry.hooks.length > 0;
     });
     if (settings.hooks[event].length === 0) delete settings.hooks[event];
