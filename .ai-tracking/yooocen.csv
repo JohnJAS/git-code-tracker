@@ -24,3 +24,4 @@ yooocen,102,102,true,126ad0dcc0022166b8179b63125f069811c902c6,2026-05-14 21:22:0
 yooocen,3,4,true,c76810638a18e57a6609db011c13383316e6203a,2026-05-14 22:06:19,fix: use fileURLToPath instead of URL.pathname for Windows compat
 yooocen,208,217,true,0a7c52b8462f15db7ce0bbe5c9d528b31c83d664,2026-05-14 22:22:00,feat: add uninstall mode and document concurrency limitation
 yooocen,70,70,true,ad4b41e3038c5cb455bccf6b507489715140695a,2026-05-14 22:41:20,docs: add execution flow diagram and log troubleshooting guide
+yooocen,10,10,true,eea366f1b72cc9311462d4504d25f92662260af4,2026-05-15 09:08:57,fix: skip merge commits in post-commit tracking
