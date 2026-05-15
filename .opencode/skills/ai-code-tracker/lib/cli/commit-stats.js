@@ -9,7 +9,7 @@ import { parseAddedLinesFromDiff } from "../tracker/diff.js";
 import { buildPendingCommit } from "../tracker/stats.js";
 import { consumeMatchedLines, loadPendingLines, savePendingLines } from "../tracker/lineStore.js";
 import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
-import { archiveDir, authorCsvPath, configPath, pendingCommitPath, pendingLinesPath, snapshotDir, trackingMessagePath } from "../tracker/paths.js";
+import { archiveDir, authorCsvPath, pendingCommitPath, pendingLinesPath, snapshotDir, trackingMessagePath } from "../tracker/paths.js";
 import { loadConfig } from "../tracker/shared.js";
 import { logInfo, logError, startTimer } from "../tracker/logger.js";
 
@@ -114,7 +114,9 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   }
 
   const subject = await gitImpl(["log", "-1", "--pretty=%s"], { cwd: repoRoot });
-  if (subject.includes("[ai-tracking]")) {
+  const config = await loadConfig(repoRoot);
+  const suffix = config.tracking_commit_suffix || "[ai-tracking]";
+  if (subject.includes(suffix)) {
     await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
     return { skipped: "tracking-commit" };
   }
@@ -170,10 +172,10 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     message: messageSubject,
   });
 
-  const autoTracking = (await loadConfig(repoRoot)).auto_tracking_commit !== false;
+  const autoTracking = config.auto_tracking_commit !== false;
 
   if (autoTracking) {
-    await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage), {
+    await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
       operation: "write tracking commit message",
     });
     await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
@@ -206,7 +208,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
 }
 
 async function stageTrackingFiles({ repoRoot, gitImpl, csvPath }) {
-  await gitImpl(["add", configPath(repoRoot), csvPath], { cwd: repoRoot });
+  await gitImpl(["add", csvPath], { cwd: repoRoot });
   await gitImpl([
     "rm",
     "--cached",
@@ -234,10 +236,10 @@ function removeTrackingFiles(addedLines) {
   );
 }
 
-function trackingMessage(fullMessage) {
+function trackingMessage(fullMessage, suffix = "[ai-tracking]") {
   const lines = String(fullMessage || "").replace(/\s+$/u, "").split(/\r?\n/);
   const subject = lines.shift() || "AI code tracking";
-  return [`${subject} [ai-tracking]`, ...lines].join("\n").trimEnd() + "\n";
+  return [`${subject} ${suffix}`, ...lines].join("\n").trimEnd() + "\n";
 }
 
 function formatCommitDate(value) {

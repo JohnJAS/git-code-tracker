@@ -82,21 +82,6 @@ export async function checkInstall(repoRoot) {
   const isOpencode = tool === "opencode";
   const isClaude = tool === "claude";
 
-  const configContent = expectedConfigContent();
-
-  for (const [file, label, expected] of [
-    [configPath(repoRoot), "tracker config", configContent],
-  ]) {
-    if (!await exists(file)) {
-      missing.push(label);
-      continue;
-    }
-    if (expected !== null) {
-      const actual = await fs.readFile(file, "utf8");
-      if (actual.trimEnd() !== expected.trimEnd()) mismatches.push(label);
-    }
-  }
-
   for (const hookName of ["pre-commit", "post-commit", "pre-push"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
     if (!await hasEffectiveHook(hook, HOOK_SCRIPTS[hookName])) missing.push(`${hookName} hook`);
@@ -149,8 +134,10 @@ export async function installIntoRepo(repoRoot) {
   await logInfo(repoRoot, "install", "detected tool", { tool });
 
   // Shared: config + gitignore + git hooks
-  await logInfo(repoRoot, "install", "writing tracker config");
-  await atomicWriteJson(configPath(repoRoot), expectedConfigObject());
+  if (!await exists(configPath(repoRoot))) {
+    await logInfo(repoRoot, "install", "writing tracker config");
+    await atomicWriteJson(configPath(repoRoot), expectedConfigObject());
+  }
   await updateGitignore(repoRoot);
 
   await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push"] });
@@ -303,6 +290,7 @@ const EXPECTED_GITIGNORE_LINES = [
   ".ai-tracking/*.lock",
   ".ai-tracking/archive/",
   ".ai-tracking/snapshots/",
+  ".ai-tracking/config.json",
 ];
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
@@ -387,7 +375,6 @@ function expectedConfigObject() {
     count_blank_lines: false,
     tracking_commit_suffix: "[ai-tracking]",
     auto_tracking_commit: true,
-    tracking_commit_ci_skip: false,
   };
 }
 
