@@ -251,7 +251,7 @@ test("Bash before/after records new file created by shell command", async () => 
   assert.ok(pending["src/b.js"].some((e) => e.content === "line2"));
 });
 
-test("Bash after skips files already tracked by Edit/Write hooks", async () => {
+test("Bash after replaces pending lines for already-tracked file when content changes", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
   await execFileAsync("git", ["init"], { cwd: repoRoot });
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
@@ -262,18 +262,21 @@ test("Bash after skips files already tracked by Edit/Write hooks", async () => {
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\n", "utf8");
 
-  // First, Edit hook tracks src/a.js
+  // First, Edit hook tracks src/a.js: added "two"
   await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
   await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\ntwo\n", "utf8");
   await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
 
-  // Then Bash before/after — src/a.js is already in pending-lines
-  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "echo hi", id: "bash-dup" } });
-  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "echo hi", id: "bash-dup" } });
+  // Then Bash overwrites src/a.js with different content: "one\nthree\n"
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "cp src/b.js src/a.js", id: "bash-replace" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\nthree\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "cp src/b.js src/a.js", id: "bash-replace" } });
 
   const pending = await loadPendingLines(repoRoot);
-  const aLines = pending["src/a.js"];
-  assert.equal(aLines.filter((e) => e.content === "two").length, 1);
+  // Bash replaced pending with full-file content, so "two" is gone and "three" is present
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "two"), "old line 'two' should be replaced");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "three"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "one"));
 });
 
 test("Bash after skips ignored files", async () => {
@@ -339,4 +342,96 @@ test("Bash after does not track unchanged files", async () => {
 
   const pending = await loadPendingLines(repoRoot);
   assert.equal(pending["src/a.js"], undefined);
+});
+
+test("Bash replaces pending on second Bash command to same file", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\n", "utf8");
+
+  // First Bash: overwrite with v2
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "cp src/b.js src/a.js", id: "bash-d1" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\nv2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "cp src/b.js src/a.js", id: "bash-d1" } });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "v2"));
+
+  // Second Bash: overwrite with v3
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "cp src/c.js src/a.js", id: "bash-d2" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\nv3\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "cp src/c.js src/a.js", id: "bash-d2" } });
+
+  pending = await loadPendingLines(repoRoot);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "v2"), "v2 should be replaced by second Bash");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "v3"));
+});
+
+test("Bash replaces with fewer lines (file shortened)", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline3\n", "utf8");
+
+  // First Bash adds line4
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "append", id: "bash-s1" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline3\nline4\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "append", id: "bash-s1" } });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line4"));
+
+  // Second Bash shortens: removes line3/line4, adds line5
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "truncate", id: "bash-s2" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline5\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "truncate", id: "bash-s2" } });
+
+  pending = await loadPendingLines(repoRoot);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "line3"), "removed line3 should not remain");
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "line4"), "removed line4 should not remain");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line5"));
+});
+
+test("Edit then Bash then Edit: final Edit diff replaces Bash full-file tracking", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\n", "utf8");
+
+  // Edit 1: add step1
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nstep1\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  // Bash overwrites with different content (simulating cp sync)
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "cp src/other src/a.js", id: "bash-cp1" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nstep1\nstep2\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "cp src/other src/a.js", id: "bash-cp1" } });
+
+  // Edit 2: replace step2 with step3
+  await plugin["tool.execute.before"]({ tool: "edit", args: { filePath: "src/a.js" } });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "base\nstep1\nstep3\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "edit", args: { filePath: "src/a.js" } });
+
+  const pending = await loadPendingLines(repoRoot);
+  // Edit 2 uses replace=true from original snapshot, so final pending = diff(base → final)
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step1"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "step3"));
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "step2"), "step2 should not remain after Edit replaces");
 });

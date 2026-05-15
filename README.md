@@ -297,7 +297,15 @@ grep "post-commit.*complete" .ai-tracking/plugin.log
 
 **修复**：去掉 `existing.add(line)`，`dedupeExisting` 只检查已有的 base 记录，同一批次内的重复行各自保留。
 
-### 7. 安装目录 lib 未同步最新修复
+### 7. Bash hook 跳过已追踪文件导致 cp 同步丢失行
+
+**现象**：使用 `cp` 命令同步文件（如 `cp src/x.js .claude/skills/.../lib/x.js`）后提交，AI 行数达不到 100%（如 273/287）。
+
+**原因**：`handleBashAfter` 中 `if (pending[file]) continue` 检查导致已有 pending lines 的文件被跳过。当工作流为：Edit 源文件 → cp 同步（Bash 追踪副本）→ 继续编辑源文件 → 再次 cp 同步时，第二次 cp 更新了文件内容，但 Bash hook 因文件已有 pending lines 而跳过，新增行未被记录。
+
+**修复**：移除 `pending[file]` 跳过逻辑，改用 `replace: true` 模式写入完整文件内容。Bash hook 始终用最新文件内容替换 pending lines，确保多次 Bash 命令对同一文件的修改不会丢失。
+
+### 8. 安装目录 lib 未同步最新修复
 
 **现象**：所有修复都已提交，但 commit 统计仍未改善。
 

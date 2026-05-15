@@ -234,24 +234,72 @@ test("Bash post-hook records new file created by shell command", async () => {
   assert.ok(pending["src/b.js"].some((e) => e.content === "line2"));
 });
 
-test("Bash post-hook skips files already tracked by Edit/Write hooks", async () => {
+test("Bash post-hook replaces pending lines for already-tracked file when content changes", async () => {
   const repoRoot = await fakeRepo();
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\n", "utf8");
 
-  // First, Edit hook tracks src/a.js
+  // First, Edit hook tracks src/a.js: added "two"
   await runClaudeCodeHook("pre", { stdin: preInput(repoRoot, "src/a.js", "toolu_edit1") });
   await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\ntwo\n", "utf8");
   await runClaudeCodeHook("post", { stdin: postInput(repoRoot, "src/a.js", "toolu_edit1") });
 
-  // Then Bash pre/post — src/a.js is already in pending-lines
-  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bashdup") });
-  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bashdup") });
+  // Then Bash overwrites src/a.js with different content
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_bashrep") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\nthree\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_bashrep") });
 
   const pending = await loadPendingLines(repoRoot);
-  // Should not duplicate entries for src/a.js
-  const aLines = pending["src/a.js"];
-  assert.equal(aLines.filter((e) => e.content === "two").length, 1);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "two"), "old line 'two' should be replaced");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "three"));
+  assert.ok(pending["src/a.js"].some((e) => e.content === "one"));
+});
+
+test("Bash post-hook replaces pending on second Bash command to same file", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\n", "utf8");
+
+  // First Bash: overwrite with v2 content
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_b1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\nv2\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_b1") });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "v2"));
+
+  // Second Bash: overwrite with v3 content
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_b2") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "v1\nv3\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_b2") });
+
+  pending = await loadPendingLines(repoRoot);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "v2"), "v2 should be replaced by second Bash");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "v3"));
+});
+
+test("Bash post-hook replaces with fewer lines (file shortened)", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline3\n", "utf8");
+
+  // First Bash tracks 3 lines
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_short1") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline3\nline4\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_short1") });
+
+  let pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line4"));
+
+  // Second Bash shortens the file — removes line3 and line4, adds line5
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_short2") });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "line1\nline2\nline5\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_short2") });
+
+  pending = await loadPendingLines(repoRoot);
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "line3"), "removed line3 should not remain");
+  assert.ok(!pending["src/a.js"].some((e) => e.content === "line4"), "removed line4 should not remain");
+  assert.ok(pending["src/a.js"].some((e) => e.content === "line5"));
 });
 
 test("Bash post-hook skips ignored files", async () => {

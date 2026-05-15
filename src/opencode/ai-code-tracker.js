@@ -158,14 +158,13 @@ async function handleBashAfter({ cwd, tool, args }) {
 
     for (const [file, hash] of Object.entries(currentHashes)) {
       if (shouldIgnore(file)) continue;
-      if (pending[file]) continue;
       if (prevHashes[file] === hash) continue;
 
       const absolutePath = path.join(repoRoot, file);
       const content = await safeRead(absolutePath);
       const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
       if (lines.length > 0) {
-        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true });
+        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
         trackedCount++;
       }
     }
