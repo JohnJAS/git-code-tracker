@@ -7,3 +7,4 @@
 .ai-tracking/*.lock
 .ai-tracking/archive/
 .ai-tracking/snapshots/
+.ai-tracking/config.json
