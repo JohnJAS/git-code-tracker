@@ -337,26 +337,87 @@ function claudeHookCommand() {
 }
 
 async function detectActiveTool() {
-  // Check environment variables first
+  // Check environment variables first (works on all platforms)
   if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_SESSION) return "claude";
   if (process.env.OPENCODE_SESSION || process.env.CODEAGENT_SESSION) return "opencode";
 
-  // Check process tree
-  try {
-    const { stdout } = await execFileAsync("ps", ["-o", "comm=", "-p", String(process.ppid)], { timeout: 3000 });
-    const parent = stdout.trim().toLowerCase();
-    if (parent.includes("claude")) return "claude";
-    if (parent.includes("opencode") || parent.includes("codeagent")) return "opencode";
-  } catch { /* Best-effort detection. */ }
+  // Allow test override (same pattern as commit-stats.js)
+  const envTree = process.env.AI_CODE_TRACKER_PROCESS_TREE;
+  if (envTree !== undefined) {
+    const lower = envTree.toLowerCase();
+    if (/\bclaude\b/.test(lower)) return "claude";
+    if (/\bopencode\b/.test(lower) || /\bcodeagent\b/.test(lower)) return "opencode";
+    return "unknown";
+  }
 
-  // Check parent command line on Linux/WSL
-  try {
-    const cmdline = await fs.readFile(`/proc/${process.ppid}/cmdline`, "utf8").catch(() => "");
-    if (cmdline.includes("claude")) return "claude";
-    if (cmdline.includes("opencode") || cmdline.includes("codeagent")) return "opencode";
-  } catch { /* Best-effort detection. */ }
+  // Check process tree
+  if (process.platform === "win32") {
+    const tree = await readWindowsProcessTree();
+    if (/\bclaude\b/.test(tree)) return "claude";
+    if (/\bopencode\b/.test(tree) || /\bcodeagent\b/.test(tree)) return "opencode";
+  } else {
+    // Unix: walk up from parent
+    let pid = process.ppid;
+    for (let i = 0; i < 10 && pid > 1; i++) {
+      const stat = await readProcStat(pid) ?? await readPsStat(pid);
+      if (!stat) break;
+      const cmd = stat.command.toLowerCase();
+      if (/\bclaude\b/.test(cmd)) return "claude";
+      if (/\bopencode\b/.test(cmd) || /\bcodeagent\b/.test(cmd)) return "opencode";
+      pid = stat.parentPid;
+    }
+  }
 
   return "unknown";
+}
+
+async function readWindowsProcessTree() {
+  const script = `
+$pidToRead = ${process.ppid}
+for ($i = 0; $i -lt 10 -and $pidToRead -gt 0; $i++) {
+  $p = Get-CimInstance Win32_Process -Filter "ProcessId=$pidToRead"
+  if ($null -eq $p) { break }
+  ($p.Name + " " + $p.CommandLine)
+  $pidToRead = [int]$p.ParentProcessId
+}`;
+  try {
+    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+      timeout: 5000,
+    });
+    return stdout.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+async function readProcStat(pid) {
+  try {
+    const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8");
+    const closeParen = stat.lastIndexOf(")");
+    const openParen = stat.indexOf("(");
+    if (openParen === -1 || closeParen === -1) return null;
+    const command = stat.slice(openParen + 1, closeParen);
+    const rest = stat.slice(closeParen + 2).split(" ");
+    return { command, parentPid: Number(rest[1] || 0) };
+  } catch {
+    return null;
+  }
+}
+
+async function readPsStat(pid) {
+  try {
+    const { stdout } = await execFileAsync("ps", ["-o", "ppid=", "-o", "comm=", "-p", String(pid)], {
+      maxBuffer: 1024 * 1024,
+      timeout: 3000,
+    });
+    const match = stdout.trim().match(/^(\d+)\s+(.+)$/u);
+    if (!match) return null;
+    return { parentPid: Number(match[1]), command: match[2] };
+  } catch {
+    return null;
+  }
 }
 
 async function updateGitignore(repoRoot) {

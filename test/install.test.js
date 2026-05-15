@@ -243,7 +243,7 @@ test("checkInstall detects missing Claude Code hooks", async () => {
 
 // --- Three-branch logic tests ---
 
-const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION", "CODEAGENT_SESSION"];
+const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION", "CODEAGENT_SESSION", "AI_CODE_TRACKER_PROCESS_TREE"];
 
 function saveToolEnv() {
   const saved = {};
@@ -260,6 +260,8 @@ function restoreToolEnv(saved) {
 
 function setToolEnv(tool) {
   for (const key of TOOL_ENV_KEYS) delete process.env[key];
+  // Override process tree to prevent host environment from leaking into tests
+  process.env.AI_CODE_TRACKER_PROCESS_TREE = "";
   if (tool === "opencode") process.env.OPENCODE_SESSION = "test";
   else if (tool === "claude") process.env.CLAUDE_CODE = "1";
 }
