@@ -33,3 +33,4 @@ yooocen,19,19,true,950b29124b2c5ed5095c25b6bb6f090b7feb6a9a,2026-05-15 10:08:21,
 yooocen,26,26,true,d738ac18dc055e657fed200b32e9f2012fcf4049,2026-05-15 10:32:42,feat: add post-rewrite hook to prune orphaned CSV records
 yooocen,0,1,true,61eb050f40b70bfdceab60ba64ea35c35ed9b748,2026-05-15 10:35:51,chore: add config.json to gitignore
 yooocen,13,13,true,4e480c15ea39517aa98c9ce2cbd83f0d2fb77d39,2026-05-15 16:47:27,"fix: inject missing post-rewrite hook, add --experimental-vm-modules for low Node compatibility"
+yooocen,1,8,true,195246d154f4238f0695768baea1edf5162fcefe,2026-05-15 16:55:03,"fix: remove stale config.ignore reference from opencode lib, clean up duplicate Claude hooks"
