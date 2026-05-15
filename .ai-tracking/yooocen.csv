@@ -39,3 +39,4 @@ yooocen,39,39,true,be17a01914bc60727c9355860148ab361e147b02,2026-05-15 18:17:19,
 yooocen,49,49,true,1890199ef7d2277430a4fa9d63ee28ca40103bd1,2026-05-15 21:37:09,docs: add Claude Code and opencode installation instructions to README
 yooocen,23,33,true,369fcf610353b4f4223296b4fb91f07063122603,2026-05-15 21:52:53,"fix: hardcode claude-code-hook.js path to .claude/skills/, clean old hooks on uninstall"
 yooocen,119,157,true,ed404838e10db0ab24154dccea43fb165df5c273,2026-05-15 22:24:34,"fix: deterministic skillRelativeDir, restore three-branch install logic, add branch tests"
+yooocen,273,287,true,4362998f11895f90eee107138a4dbda2b1cb3786,2026-05-15 22:50:55,"fix: Windows process tree detection for detectActiveTool, Bash tracking for opencode plugin"
