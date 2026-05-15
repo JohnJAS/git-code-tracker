@@ -79,7 +79,7 @@ export async function loadConfig(repoRoot) {
   try {
     return JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
   } catch {
-    return { enabled: false };
+    return { enabled: true, count_blank_lines: false, tracking_commit_suffix: "[ai-tracking]", auto_tracking_commit: true };
   }
 }
 

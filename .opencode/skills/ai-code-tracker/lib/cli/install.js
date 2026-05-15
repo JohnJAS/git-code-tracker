@@ -112,6 +112,18 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
     mismatches.push("gitignore (file not found)");
   }
 
+  const cfg = configPath(repoRoot);
+  if (!await exists(cfg)) {
+    missing.push("tracker config");
+  } else {
+    try {
+      const data = JSON.parse(await fs.readFile(cfg, "utf8"));
+      if (!data.enabled) mismatches.push("tracker config");
+    } catch {
+      mismatches.push("tracker config");
+    }
+  }
+
   // opencode-specific checks
   if (isOpencode || (!isOpencode && !isClaude)) {
     const pluginContent = expectedPluginContent();

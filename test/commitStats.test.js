@@ -217,6 +217,7 @@ test("post-commit writes csv and consumes matched lines", async () => {
     git: async (args) => {
       gitCalls.push(args);
       const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
       if (key.startsWith("merge-base --is-ancestor")) return "";
       if (key === "log -1 --pretty=%s") return "Implement thing";
@@ -261,6 +262,7 @@ test("post-commit copies AI lines from cherry-pick source", async () => {
     env: {},
     git: async (args) => {
       const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
       if (key.startsWith("merge-base --is-ancestor")) return "";
       if (key === "rev-parse HEAD") return "abc123";
@@ -299,6 +301,7 @@ test("post-commit does not copy AI lines when no cherry-pick source", async () =
     env: {},
     git: async (args) => {
       const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
       if (key.startsWith("merge-base --is-ancestor")) return "";
       if (key === "rev-parse HEAD") return "abc123";
