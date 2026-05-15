@@ -31,3 +31,4 @@ yooocen,18,18,true,a4b88ba059fc1e7ab8833650c6902c276f3bee5d,2026-05-15 10:00:45,
 yooocen,146,146,true,9944d68e2850952cdef4748b35f1881af015f70e,2026-05-15 10:04:20,"refactor: hardcode ignore list, remove from config"
 yooocen,19,19,true,950b29124b2c5ed5095c25b6bb6f090b7feb6a9a,2026-05-15 10:08:21,docs: rewrite data storage section with lifecycle explanation
 yooocen,26,26,true,d738ac18dc055e657fed200b32e9f2012fcf4049,2026-05-15 10:32:42,feat: add post-rewrite hook to prune orphaned CSV records
+yooocen,0,1,true,61eb050f40b70bfdceab60ba64ea35c35ed9b748,2026-05-15 10:35:51,chore: add config.json to gitignore
