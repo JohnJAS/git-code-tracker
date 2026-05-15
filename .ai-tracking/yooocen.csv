@@ -44,3 +44,4 @@ yooocen,161,165,true,09a272e2042454b29774fa3a56abeee233ad34cb,2026-05-15 22:56:2
 yooocen,12,562,true,9fcf72f14a578a4d82804b6b4db4b807abdfa1c4,2026-05-15 23:22:56,fix: Bash hook replaces pending lines instead of skipping already-tracked files
 yooocen,0,50,true,1ba1d43fa8aedee7b82013157cff90a3744c2c70,2026-05-15 23:26:31,fix: include staged files in Bash hash capture so cp sync after git add is tracked
 yooocen,296,304,true,da0968ab5b8fb63b8f857013136143b9ecabd967,2026-05-15 23:32:28,"fix: restore scripts/ thin wrappers that delegate to lib/, not raw cp"
+yooocen,1,101,true,a30a7d47dd6cd9a01a3fc2c1b17dadd069ed9e3f,2026-05-15 23:54:52,Add test file with 100 lines
