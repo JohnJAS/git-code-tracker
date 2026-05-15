@@ -19,8 +19,10 @@ const END = "# ai-code-tracker end";
 
 function skillRelativeDir(repoRoot) {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const rel = path.relative(repoRoot, path.resolve(scriptDir, "..", ".."));
-  return rel.replace(/\\/g, "/");
+  const skillRoot = path.resolve(scriptDir, "..", "..");
+  const rel = path.relative(repoRoot, skillRoot).replace(/\\/g, "/");
+  if (rel.startsWith("..")) return ".opencode/skills/ai-code-tracker";
+  return rel;
 }
 
 function hookScriptsForRepo(repoRoot) {
@@ -87,7 +89,7 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
   return result;
 }
 
-export async function checkInstall(repoRoot, hookScripts) {
+export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
   const missing = [];
   const mismatches = [];
 
@@ -137,7 +139,7 @@ export async function checkInstall(repoRoot, hookScripts) {
   return { ok: missing.length === 0 && mismatches.length === 0, missing, mismatches };
 }
 
-export async function installIntoRepo(repoRoot, hookScripts) {
+export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
   await ensureWritableRepo(repoRoot);
 
   const tool = await detectActiveTool();
@@ -193,7 +195,7 @@ export async function installIntoRepo(repoRoot, hookScripts) {
   await ensureAgentsRule(repoRoot, tool);
 }
 
-async function uninstallFromRepo(repoRoot, hookScripts) {
+async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
   await ensureWritableRepo(repoRoot);
 
   // Remove git hook blocks
@@ -400,7 +402,11 @@ const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "a
 
 async function deployCommands(repoRoot, tool) {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
+  let commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
+  if (!await exists(commandsDir)) {
+    const projectRoot = await gitRepoRoot(scriptDir);
+    commandsDir = path.join(projectRoot, tool === "claude" ? ".claude" : ".opencode", "skills", "ai-code-tracker", "commands", tool);
+  }
   const destDir = tool === "opencode"
     ? path.join(repoRoot, ".opencode", "commands")
     : path.join(repoRoot, ".claude", "commands");
