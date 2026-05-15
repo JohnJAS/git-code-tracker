@@ -105,18 +105,31 @@ node install-to-project.js /path/to/your/project
 
 ## 数据存储
 
-所有追踪数据存储在项目的 `.ai-tracking/` 目录中：
+所有追踪数据存储在项目的 `.ai-tracking/` 目录中（已在 gitignore 中排除，不提交到代码仓）：
 
 ```
 .ai-tracking/
-├── config.json              # 配置（enabled, ignore, count_blank_lines）
-├── pending-lines.json       # 待匹配的 AI 新增行
-├── pending-commit.json      # pre-commit 生成的统计（post-commit 消费）
-├── tracking-message.txt     # 追踪提交的 commit message
+├── config.json              # 本地配置（enabled, count_blank_lines 等）
+├── pending-lines.json       # AI 编辑文件后记录的新增行，等 git commit 时与 staged diff 匹配
+├── pending-commit.json      # pre-commit 计算出的统计结果，传递给 post-commit 使用
+├── tracking-message.txt     # [ai-tracking] 追踪 commit 的 message 内容
 ├── plugin.log               # 运行日志（所有 hook 和安装操作的记录）
-├── snapshots/               # 快照文件
-├── authors/                 # 按作者分组的 CSV 统计
-└── archive/                 # pre-push 归档的文件
+├── snapshots/               # 编辑前的文件快照（用于 diff 计算新增行）
+├── authors/
+│   └── <作者名>.csv         # 最终统计结果，每行一个 commit 的 AI 行数/总行数
+└── archive/                 # git push 后归档的 pending 文件
+```
+
+### 文件生命周期
+
+```
+AI 编辑文件 → pending-lines.json 记录新增行
+                    ↓
+git commit (pre-commit) → pending-commit.json 记录统计结果
+                    ↓
+git commit (post-commit) → authors/*.csv 写入最终记录 + [ai-tracking] commit
+                    ↓
+git push (pre-push) → archive/ 归档清理
 ```
 
 ## 日志排查
