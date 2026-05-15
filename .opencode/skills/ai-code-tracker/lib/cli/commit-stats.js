@@ -35,6 +35,10 @@ export async function runCommitStats(mode, options = {}) {
 
   await logInfo(repoRoot, `commit-stats.${mode}`, "enter");
 
+  if (mode === "prune") {
+    return runPrune({ repoRoot, gitImpl });
+  }
+
   await pruneCsvRecordsIfPossible(repoRoot, gitImpl);
 
   if (mode === "pre-commit") {
@@ -48,6 +52,13 @@ export async function runCommitStats(mode, options = {}) {
   }
 
   throw new Error(`Unknown commit-stats mode: ${mode}`);
+}
+
+async function runPrune({ repoRoot, gitImpl }) {
+  const timer = startTimer();
+  const result = await pruneCsvRecordsIfPossible(repoRoot, gitImpl);
+  await logInfo(repoRoot, "prune", "complete", { ...result, durationMs: timer.elapsedMs() });
+  return { pruned: true, ...result };
 }
 
 async function runPrePush({ repoRoot, now = new Date() }) {

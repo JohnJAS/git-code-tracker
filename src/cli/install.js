@@ -20,6 +20,7 @@ const HOOK_SCRIPTS = {
   "pre-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit'),
   "post-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit'),
   "pre-push": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push'),
+  "post-rewrite": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" prune'),
 };
 
 function hookScript(command) {
@@ -82,7 +83,7 @@ export async function checkInstall(repoRoot) {
   const isOpencode = tool === "opencode";
   const isClaude = tool === "claude";
 
-  for (const hookName of ["pre-commit", "post-commit", "pre-push"]) {
+  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
     if (!await hasEffectiveHook(hook, HOOK_SCRIPTS[hookName])) missing.push(`${hookName} hook`);
   }
@@ -140,7 +141,7 @@ export async function installIntoRepo(repoRoot) {
   }
   await updateGitignore(repoRoot);
 
-  await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push"] });
+  await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push", "post-rewrite"] });
   await injectHook(repoRoot, "pre-commit", HOOK_SCRIPTS["pre-commit"]);
   await injectHook(repoRoot, "post-commit", HOOK_SCRIPTS["post-commit"]);
   await injectHook(repoRoot, "pre-push", HOOK_SCRIPTS["pre-push"]);
@@ -183,7 +184,7 @@ async function uninstallFromRepo(repoRoot) {
   await ensureWritableRepo(repoRoot);
 
   // Remove git hook blocks
-  for (const hookName of ["pre-commit", "post-commit", "pre-push"]) {
+  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
     if (!await exists(hook)) continue;
     let content = await fs.readFile(hook, "utf8");
