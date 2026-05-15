@@ -49,7 +49,7 @@ export async function runClaudeCodeHook(mode, options = {}) {
   const absolutePath = path.resolve(toPosixPath(cwd), toPosixPath(filePath));
   const relative = path.relative(repoRoot, absolutePath).replaceAll(path.sep, "/");
 
-  if (shouldIgnore(relative, config.ignore ?? [])) return;
+  if (shouldIgnore(relative)) return;
 
   if (mode === "pre") {
     await handlePre({ repoRoot, absolutePath, relative, toolUseId });
@@ -157,7 +157,7 @@ async function handleBashPost({ repoRoot, toolUseId, config }) {
     let trackedCount = 0;
 
     for (const [file, hash] of Object.entries(currentHashes)) {
-      if (shouldIgnore(file, config.ignore ?? [])) continue;
+      if (shouldIgnore(file)) continue;
       if (pending[file]) continue;
       if (prevHashes[file] === hash) continue;
 

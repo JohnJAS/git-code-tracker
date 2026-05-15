@@ -83,7 +83,15 @@ export async function loadConfig(repoRoot) {
   }
 }
 
-export function shouldIgnore(filePath, patterns) {
+const DEFAULT_IGNORE = [
+  ".ai-tracking/**",
+  ".git/**",
+  "node_modules/**",
+  "dist/**",
+  "build/**",
+];
+
+export function shouldIgnore(filePath, patterns = DEFAULT_IGNORE) {
   return patterns.some((pattern) => {
     if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -3));
     return filePath === pattern;

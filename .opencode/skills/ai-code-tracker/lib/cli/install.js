@@ -371,7 +371,6 @@ function expectedPluginContent() {
 function expectedConfigObject() {
   return {
     enabled: true,
-    ignore: [".ai-tracking/**", ".git/**", "node_modules/**", "dist/**", "build/**"],
     count_blank_lines: false,
     tracking_commit_suffix: "[ai-tracking]",
     auto_tracking_commit: true,
