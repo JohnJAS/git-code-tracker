@@ -20,7 +20,7 @@ export async function recordEditedFile({ cwd = process.cwd(), filePath, before, 
     return { skipped: "disabled" };
   }
 
-  if (shouldIgnore(relative, config.ignore ?? [])) {
+  if (shouldIgnore(relative)) {
     await logInfo(repoRoot, "recordEditedFile", "skipped: ignored", { file: relative });
     return { skipped: "ignored" };
   }

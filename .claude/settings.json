@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" pre"
+            "command": "node --experimental-vm-modules \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" pre"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" post"
+            "command": "node --experimental-vm-modules \".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js\" post"
           }
         ]
       }

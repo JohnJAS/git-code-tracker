@@ -5,3 +5,5 @@ Before modifying code in this repository, load the opencode skill `ai-code-track
 After installing or repairing ai-code-tracker, tell the user to restart the current opencode session because project plugins are loaded at opencode startup.
 
 If you create a user-requested commit from opencode, you MUST mark it as AI-created by running `AI_CODE_TRACKER_AI_COMMIT=1 git commit ...`. Do not set this variable for commits the user creates directly in their own terminal.
+
+When cherry-picking commits, always use `git cherry-pick -x` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.
