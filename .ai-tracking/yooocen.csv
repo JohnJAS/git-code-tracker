@@ -36,3 +36,4 @@ yooocen,13,13,true,4e480c15ea39517aa98c9ce2cbd83f0d2fb77d39,2026-05-15 16:47:27,
 yooocen,1,8,true,195246d154f4238f0695768baea1edf5162fcefe,2026-05-15 16:55:03,"fix: remove stale config.ignore reference from opencode lib, clean up duplicate Claude hooks"
 yooocen,20,36,true,e6ce99fd432beaa808e3069a1a8531471d2cac1d,2026-05-15 18:10:08,fix: fix install.js test failures with default hookScripts and deployCommands fallback
 yooocen,39,39,true,be17a01914bc60727c9355860148ab361e147b02,2026-05-15 18:17:19,fix: fix all 18 failing unit tests
+yooocen,49,49,true,1890199ef7d2277430a4fa9d63ee28ca40103bd1,2026-05-15 21:37:09,docs: add Claude Code and opencode installation instructions to README
