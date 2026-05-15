@@ -302,6 +302,27 @@ test("Bash post-hook replaces with fewer lines (file shortened)", async () => {
   assert.ok(pending["src/a.js"].some((e) => e.content === "line5"));
 });
 
+test("Bash post-hook detects new file even when other files are already staged", async () => {
+  const repoRoot = await fakeRepo();
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\n", "utf8");
+
+  // Stage src/a.js first (simulates git add before cp sync)
+  const { execFile: exec } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execAsync = promisify(exec);
+  await execAsync("git", ["add", "src/a.js"], { cwd: repoRoot });
+
+  // Now Bash command creates a new file (simulates cp sync)
+  await runClaudeCodeHook("pre", { stdin: bashPreInput(repoRoot, "toolu_staged1") });
+  await fs.writeFile(path.join(repoRoot, "src", "b.js"), "new-file-content\n", "utf8");
+  await runClaudeCodeHook("post", { stdin: bashPostInput(repoRoot, "toolu_staged1") });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/b.js"], "Bash hook should detect new file even when other files are staged");
+  assert.ok(pending["src/b.js"].some((e) => e.content === "new-file-content"));
+});
+
 test("Bash post-hook skips ignored files", async () => {
   const repoRoot = await fakeRepo();
   await fs.writeFile(

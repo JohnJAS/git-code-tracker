@@ -176,12 +176,14 @@ async function handleBashAfter({ cwd, tool, args }) {
 }
 
 async function captureGitFileHashes(repoRoot) {
-  const [modifiedRaw, untrackedRaw] = await Promise.all([
+  const [modifiedRaw, stagedRaw, untrackedRaw] = await Promise.all([
     git(["diff", "--name-only"], { cwd: repoRoot }).catch(() => ""),
+    git(["diff", "--cached", "--name-only"], { cwd: repoRoot }).catch(() => ""),
     git(["ls-files", "--others", "--exclude-standard"], { cwd: repoRoot }).catch(() => ""),
   ]);
   const files = [...new Set([
     ...modifiedRaw.split("\n").filter(Boolean),
+    ...stagedRaw.split("\n").filter(Boolean),
     ...untrackedRaw.split("\n").filter(Boolean),
   ])];
 

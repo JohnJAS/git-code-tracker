@@ -435,3 +435,27 @@ test("Edit then Bash then Edit: final Edit diff replaces Bash full-file tracking
   assert.ok(pending["src/a.js"].some((e) => e.content === "step3"));
   assert.ok(!pending["src/a.js"].some((e) => e.content === "step2"), "step2 should not remain after Edit replaces");
 });
+
+test("Bash hook detects new file even when other files are already staged", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-plugin-"));
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({ enabled: true, ignore: [] }), "utf8");
+
+  const plugin = await AiCodeTrackerPlugin({ directory: repoRoot });
+
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "src", "a.js"), "one\n", "utf8");
+
+  // Stage src/a.js first
+  await execFileAsync("git", ["add", "src/a.js"], { cwd: repoRoot });
+
+  // Bash command creates a new file
+  await plugin["tool.execute.before"]({ tool: "bash", args: { command: "cp src/a.js src/b.js", id: "bash-staged" } });
+  await fs.writeFile(path.join(repoRoot, "src", "b.js"), "new-content\n", "utf8");
+  await plugin["tool.execute.after"]({ tool: "bash", args: { command: "cp src/a.js src/b.js", id: "bash-staged" } });
+
+  const pending = await loadPendingLines(repoRoot);
+  assert.ok(pending["src/b.js"], "Bash hook should detect new file even when other files are staged");
+  assert.ok(pending["src/b.js"].some((e) => e.content === "new-content"));
+});
