@@ -9,7 +9,7 @@ import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/share
 const beforeSnapshots = new Map();
 const originalSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
-const bashSnapshots = new Map();
+let latestBashSnapshot = null;
 
 export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "", replace = false }) {
   const timer = startTimer();
@@ -132,8 +132,7 @@ async function handleBashBefore({ cwd, tool, args }) {
   try {
     const repoRoot = await gitRepoRoot(cwd);
     const hashes = await captureGitFileHashes(repoRoot);
-    const toolUseId = args.id ?? args.toolUseId ?? Date.now().toString();
-    bashSnapshots.set(toolUseId, { repoRoot, hashes });
+    latestBashSnapshot = { repoRoot, hashes };
     await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(hashes).length });
   } catch (error) {
     await logInfo(cwd, "tool.execute.before", `bash-pre error: ${error.message}`);
@@ -142,12 +141,11 @@ async function handleBashBefore({ cwd, tool, args }) {
 
 async function handleBashAfter({ cwd, tool, args }) {
   try {
-    const toolUseId = args.id ?? args.toolUseId ?? Date.now().toString();
-    const entry = bashSnapshots.get(toolUseId);
+    const entry = latestBashSnapshot;
     if (!entry) return;
 
+    latestBashSnapshot = null;
     const { repoRoot, hashes: prevHashes } = entry;
-    bashSnapshots.delete(toolUseId);
 
     const config = await loadConfig(repoRoot);
     if (!config.enabled) return;
