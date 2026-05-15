@@ -27,6 +27,12 @@ export async function runCommitStats(mode, options = {}) {
     return { skipped: "skip-env" };
   }
 
+  const config = await loadConfig(repoRoot);
+  if (!config.enabled) {
+    await logInfo(repoRoot, "commit-stats", "skipped: disabled", { mode });
+    return { skipped: "disabled" };
+  }
+
   await logInfo(repoRoot, `commit-stats.${mode}`, "enter");
 
   await pruneCsvRecordsIfPossible(repoRoot, gitImpl);
@@ -164,26 +170,38 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     message: messageSubject,
   });
 
-  await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage), {
-    operation: "write tracking commit message",
-  });
-  await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
-  await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
+  const autoTracking = (await loadConfig(repoRoot)).auto_tracking_commit !== false;
 
-  await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
-    cwd: repoRoot,
-    env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
-  });
+  if (autoTracking) {
+    await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage), {
+      operation: "write tracking commit message",
+    });
+    await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
+    await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
+
+    await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
+      cwd: repoRoot,
+      env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
+    });
+
+    await fs.rm(pendingPath, { force: true });
+    await fs.rm(trackingMessagePath(repoRoot), { force: true });
+  } else {
+    await gitImpl(["add", csvPath], { cwd: repoRoot });
+    await gitImpl(["commit", "--amend", "--no-edit"], {
+      cwd: repoRoot,
+      env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
+    });
+    await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: amended CSV into commit", { commitId: commitId.slice(0, 7) });
+  }
 
   const pendingLines = await loadPendingLines(repoRoot);
   await savePendingLines(repoRoot, consumeMatchedLines(pendingLines, pendingCommit.matched_lines));
-  await fs.rm(pendingPath, { force: true });
-  await fs.rm(trackingMessagePath(repoRoot), { force: true });
 
   // Clean up original snapshots so the next edit starts fresh from the committed state
   await cleanOriginalSnapshots(repoRoot);
 
-  await logInfo(repoRoot, "post-commit", "complete", { commitId: commitId.slice(0, 7), author, aiLines: pendingCommit.ai_lines, totalLines: pendingCommit.total_lines, durationMs: timer.elapsedMs() });
+  await logInfo(repoRoot, "post-commit", "complete", { commitId: commitId.slice(0, 7), author, aiLines: pendingCommit.ai_lines, totalLines: pendingCommit.total_lines, autoTracking, durationMs: timer.elapsedMs() });
   return { committed: true };
 }
 
