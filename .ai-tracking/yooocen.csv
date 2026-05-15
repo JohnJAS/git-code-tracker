@@ -42,3 +42,4 @@ yooocen,119,157,true,ed404838e10db0ab24154dccea43fb165df5c273,2026-05-15 22:24:3
 yooocen,273,287,true,4362998f11895f90eee107138a4dbda2b1cb3786,2026-05-15 22:50:55,"fix: Windows process tree detection for detectActiveTool, Bash tracking for opencode plugin"
 yooocen,161,165,true,09a272e2042454b29774fa3a56abeee233ad34cb,2026-05-15 22:56:22,test: add 5 unit tests for opencode Bash tool tracking
 yooocen,12,562,true,9fcf72f14a578a4d82804b6b4db4b807abdfa1c4,2026-05-15 23:22:56,fix: Bash hook replaces pending lines instead of skipping already-tracked files
+yooocen,0,50,true,1ba1d43fa8aedee7b82013157cff90a3744c2c70,2026-05-15 23:26:31,fix: include staged files in Bash hash capture so cp sync after git add is tracked
