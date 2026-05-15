@@ -37,3 +37,4 @@ yooocen,1,8,true,195246d154f4238f0695768baea1edf5162fcefe,2026-05-15 16:55:03,"f
 yooocen,20,36,true,e6ce99fd432beaa808e3069a1a8531471d2cac1d,2026-05-15 18:10:08,fix: fix install.js test failures with default hookScripts and deployCommands fallback
 yooocen,39,39,true,be17a01914bc60727c9355860148ab361e147b02,2026-05-15 18:17:19,fix: fix all 18 failing unit tests
 yooocen,49,49,true,1890199ef7d2277430a4fa9d63ee28ca40103bd1,2026-05-15 21:37:09,docs: add Claude Code and opencode installation instructions to README
+yooocen,23,33,true,369fcf610353b4f4223296b4fb91f07063122603,2026-05-15 21:52:53,"fix: hardcode claude-code-hook.js path to .claude/skills/, clean old hooks on uninstall"
