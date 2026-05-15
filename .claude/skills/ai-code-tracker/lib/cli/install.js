@@ -323,9 +323,8 @@ const EXPECTED_GITIGNORE_LINES = [
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
 
-function claudeHookCommand(repoRoot) {
-  const base = skillRelativeDir(repoRoot);
-  return `node --experimental-vm-modules "${base}/scripts/claude-code-hook.js"`;
+function claudeHookCommand() {
+  return 'node --experimental-vm-modules ".claude/skills/ai-code-tracker/scripts/claude-code-hook.js"';
 }
 
 async function detectActiveTool() {
@@ -456,7 +455,7 @@ async function injectClaudeHooks(repoRoot) {
 
   settings.hooks = settings.hooks ?? {};
 
-  const expected = expectedClaudeHooks(repoRoot);
+  const expected = expectedClaudeHooks();
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const hookDef = expected[event][0];
     const arr = settings.hooks[event] ?? [];
@@ -473,8 +472,8 @@ async function injectClaudeHooks(repoRoot) {
   await fs.writeFile(settingsFile, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
-function expectedClaudeHooks(repoRoot) {
-  const cmd = claudeHookCommand(repoRoot);
+function expectedClaudeHooks() {
+  const cmd = claudeHookCommand();
   return {
     PreToolUse: [
       {
@@ -500,7 +499,7 @@ async function hasClaudeHooks(repoRoot) {
     return false;
   }
 
-  const expected = expectedClaudeHooks(repoRoot);
+  const expected = expectedClaudeHooks();
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const hookDef = expected[event][0];
     const arr = settings.hooks?.[event];
@@ -524,13 +523,16 @@ async function removeClaudeHooks(repoRoot) {
 
   if (!settings.hooks) { await writeSettings(settingsFile, settings); return; }
 
-  const cmd = claudeHookCommand(repoRoot);
+  const cmds = [
+    claudeHookCommand(),
+    'node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"',
+  ];
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const arr = settings.hooks[event];
     if (!Array.isArray(arr)) continue;
     settings.hooks[event] = arr.filter((entry) => {
       if (entry.matcher !== CLAUDE_HOOK_MATCHER) return true;
-      entry.hooks = (entry.hooks ?? []).filter((h) => h.command !== `${cmd} pre` && h.command !== `${cmd} post`);
+      entry.hooks = (entry.hooks ?? []).filter((h) => !cmds.some((cmd) => h.command === `${cmd} pre` || h.command === `${cmd} post`));
       return entry.hooks.length > 0;
     });
     if (settings.hooks[event].length === 0) delete settings.hooks[event];
