@@ -81,6 +81,28 @@ node install-to-project.js /path/to/your/project
 
 安装后会在目标项目中配置 git hooks 和 AI 工具钩子。
 
+## 配置
+
+安装后自动生成 `.ai-tracking/config.json`（不提交到代码仓，仅本地使用）：
+
+```json
+{
+  "enabled": true,
+  "ignore": [".ai-tracking/**", ".git/**", "node_modules/**", "dist/**", "build/**"],
+  "count_blank_lines": false,
+  "tracking_commit_suffix": "[ai-tracking]",
+  "auto_tracking_commit": true
+}
+```
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `enabled` | boolean | `true` | 设为 `false` 完全关闭追踪（hook 入口、git hooks 全部跳过） |
+| `ignore` | string[] | 见上 | 忽略的文件路径模式（支持 `/**` 通配符匹配目录前缀） |
+| `count_blank_lines` | boolean | `false` | 是否将空行计入 total_lines |
+| `tracking_commit_suffix` | string | `"[ai-tracking]"` | 追踪 commit message 的后缀标记，也用于检测跳过已有追踪 commit |
+| `auto_tracking_commit` | boolean | `true` | 设为 `false` 时不单独生成 `[ai-tracking]` commit，改为 amend CSV 进原始 commit |
+
 ## 数据存储
 
 所有追踪数据存储在项目的 `.ai-tracking/` 目录中：
