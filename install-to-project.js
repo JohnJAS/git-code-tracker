@@ -49,7 +49,7 @@ await assertGitRepo(targetRoot);
 await fs.mkdir(path.dirname(targetSkill), { recursive: true });
 await fs.rm(targetSkill, { recursive: true, force: true });
 await fs.cp(sourceSkill, targetSkill, { recursive: true });
-await execFileAsync("node", [path.join(targetSkill, "scripts", "install.js")], { cwd: targetRoot });
+await execFileAsync("node", ["--experimental-vm-modules", path.join(targetSkill, "scripts", "install.js")], { cwd: targetRoot });
 
 console.log(`ai-code-tracker installed into ${targetRoot}`);
 

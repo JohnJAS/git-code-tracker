@@ -17,10 +17,10 @@ const execFileAsync = promisify(execFile);
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
 const HOOK_SCRIPTS = {
-  "pre-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit'),
-  "post-commit": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit'),
-  "pre-push": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push'),
-  "post-rewrite": hookScript('node ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" prune'),
+  "pre-commit": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-commit'),
+  "post-commit": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" post-commit'),
+  "pre-push": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" pre-push'),
+  "post-rewrite": hookScript('node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/commit-stats.js" prune'),
 };
 
 function hookScript(command) {
@@ -145,6 +145,7 @@ export async function installIntoRepo(repoRoot) {
   await injectHook(repoRoot, "pre-commit", HOOK_SCRIPTS["pre-commit"]);
   await injectHook(repoRoot, "post-commit", HOOK_SCRIPTS["post-commit"]);
   await injectHook(repoRoot, "pre-push", HOOK_SCRIPTS["pre-push"]);
+  await injectHook(repoRoot, "post-rewrite", HOOK_SCRIPTS["post-rewrite"]);
 
   // opencode-specific: plugin + commands
   if (isOpencode) {
@@ -295,7 +296,7 @@ const EXPECTED_GITIGNORE_LINES = [
 ];
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
-const CLAUDE_HOOK_COMMAND = 'node ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"';
+const CLAUDE_HOOK_COMMAND = 'node --experimental-vm-modules ".opencode/skills/ai-code-tracker/scripts/claude-code-hook.js"';
 
 async function detectActiveTool() {
   // Check environment variables first
