@@ -2,6 +2,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitRepoRoot } from "../tracker/git.js";
@@ -18,6 +19,14 @@ const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
 
 function skillRelativeDir(repoRoot) {
+  // Deterministic path: prefer .opencode if it exists, else .claude
+  // This ensures git hooks reference the same path regardless of which
+  // skill directory's install.js is running.
+  const opencodeDir = path.join(repoRoot, ".opencode", "skills", "ai-code-tracker");
+  if (fsSync.existsSync(opencodeDir)) return ".opencode/skills/ai-code-tracker";
+  const claudeDir = path.join(repoRoot, ".claude", "skills", "ai-code-tracker");
+  if (fsSync.existsSync(claudeDir)) return ".claude/skills/ai-code-tracker";
+  // Fallback: derive from script location
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const skillRoot = path.resolve(scriptDir, "..", "..");
   const rel = path.relative(repoRoot, skillRoot).replace(/\\/g, "/");
@@ -124,7 +133,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
     }
   }
 
-  // opencode-specific checks
+  // opencode: check plugin + commands
   if (isOpencode || (!isOpencode && !isClaude)) {
     const pluginContent = expectedPluginContent();
     if (!await exists(opencodePluginPath(repoRoot))) {
@@ -139,7 +148,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
     }
   }
 
-  // Claude Code-specific checks
+  // Claude Code: check hooks + commands
   if (isClaude || (!isOpencode && !isClaude)) {
     if (!await hasClaudeHooks(repoRoot)) missing.push("Claude Code hooks");
     for (const file of CLAUDE_COMMAND_FILES) {
@@ -173,7 +182,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
   await injectHook(repoRoot, "pre-push", hookScripts["pre-push"]);
   await injectHook(repoRoot, "post-rewrite", hookScripts["post-rewrite"]);
 
-  // opencode-specific: plugin + commands
+  // opencode: plugin + commands
   if (isOpencode) {
     await fs.mkdir(path.join(repoRoot, ".opencode", "plugins"), { recursive: true });
     await ensureOpencodePackage(repoRoot);
@@ -183,7 +192,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
     await deployCommands(repoRoot, "opencode");
   }
 
-  // Claude Code-specific: hooks + commands
+  // Claude Code: hooks + commands
   if (isClaude) {
     await logInfo(repoRoot, "install", "injecting Claude Code hooks");
     await injectClaudeHooks(repoRoot);
@@ -204,7 +213,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
     await deployCommands(repoRoot, "claude");
   }
 
-  await ensureAgentsRule(repoRoot, tool);
+  await ensureAgentsRule(repoRoot);
 }
 
 async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {

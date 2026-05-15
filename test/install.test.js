@@ -240,3 +240,149 @@ test("checkInstall detects missing Claude Code hooks", async () => {
   assert.equal(result.ok, false);
   assert.ok(result.missing.includes("Claude Code hooks"));
 });
+
+// --- Three-branch logic tests ---
+
+const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION", "CODEAGENT_SESSION"];
+
+function saveToolEnv() {
+  const saved = {};
+  for (const key of TOOL_ENV_KEYS) saved[key] = process.env[key];
+  return saved;
+}
+
+function restoreToolEnv(saved) {
+  for (const key of TOOL_ENV_KEYS) {
+    if (saved[key] !== undefined) process.env[key] = saved[key];
+    else delete process.env[key];
+  }
+}
+
+function setToolEnv(tool) {
+  for (const key of TOOL_ENV_KEYS) delete process.env[key];
+  if (tool === "opencode") process.env.OPENCODE_SESSION = "test";
+  else if (tool === "claude") process.env.CLAUDE_CODE = "1";
+}
+
+async function fileExists(p) {
+  try { await fs.access(p); return true; } catch { return false; }
+}
+
+const COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
+
+test("opencode detected: installs only opencode plugin and commands", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("opencode");
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    // opencode plugin + commands exist
+    assert.ok(await fileExists(opencodePluginPath(repoRoot)));
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".opencode", "commands", file)), `missing ${file}`);
+    }
+
+    // Claude hooks NOT installed
+    assert.ok(!(await fileExists(path.join(repoRoot, ".claude", "settings.json"))));
+
+    // Claude commands NOT deployed
+    assert.ok(!(await fileExists(path.join(repoRoot, ".claude", "commands", "ai-install.md"))));
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("claude detected: installs only Claude hooks and commands", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("claude");
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    // Claude hooks exist
+    const settings = JSON.parse(await fs.readFile(path.join(repoRoot, ".claude", "settings.json"), "utf8"));
+    assert.ok(settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash"));
+
+    // Claude commands exist
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".claude", "commands", file)), `missing ${file}`);
+    }
+
+    // opencode plugin NOT installed
+    assert.ok(!(await fileExists(opencodePluginPath(repoRoot))));
+
+    // opencode commands NOT deployed
+    assert.ok(!(await fileExists(path.join(repoRoot, ".opencode", "commands", "ai-install.md"))));
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("unknown tool: installs both opencode and Claude", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("unknown");
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    // opencode plugin exists
+    assert.ok(await fileExists(opencodePluginPath(repoRoot)));
+
+    // opencode commands exist
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".opencode", "commands", file)), `missing ${file}`);
+    }
+
+    // Claude hooks exist
+    const settings = JSON.parse(await fs.readFile(path.join(repoRoot, ".claude", "settings.json"), "utf8"));
+    assert.ok(settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash"));
+
+    // Claude commands exist
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".claude", "commands", file)), `missing ${file}`);
+    }
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("checkInstall passes when tool matches install", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+
+  // Install with opencode env
+  setToolEnv("opencode");
+  await installIntoRepo(repoRoot);
+
+  try {
+    // Check still with opencode env
+    const result = await checkInstall(repoRoot);
+    assert.equal(result.ok, true, `missing=${JSON.stringify(result.missing)} mismatches=${JSON.stringify(result.mismatches)}`);
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("checkInstall fails when tool differs from install", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+
+  // Install with opencode env
+  setToolEnv("opencode");
+  await installIntoRepo(repoRoot);
+
+  // Switch to claude env for check
+  setToolEnv("claude");
+
+  try {
+    const result = await checkInstall(repoRoot);
+    assert.equal(result.ok, false);
+    assert.ok(result.missing.includes("Claude Code hooks"));
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
