@@ -220,7 +220,6 @@ test("post-commit writes csv and consumes matched lines", async () => {
       if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
       if (key.startsWith("merge-base --is-ancestor")) return "";
-      if (key === "log -1 --pretty=%s") return "Implement thing";
       if (key === "rev-parse HEAD") return "abc123";
       if (key === "log -1 --pretty=%an") return "cyd";
       if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-05T12:34:56+08:00";
@@ -342,4 +341,52 @@ test("pre-push archives and clears pending tracking files", async () => {
     await fs.readFile(path.join(repoRoot, ".ai-tracking", "archive", "2026-05-06T030405Z", "pending-lines.json"), "utf8"),
     JSON.stringify({ "src/a.js": ["ai"] }),
   );
+});
+
+test("post-commit skips tracking commit with suffix at end of message", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+
+  const result = await runCommitStats("post-commit", {
+    repoRoot,
+    env: {},
+    git: async (args) => {
+      if (args.join(" ") === "rev-parse --verify HEAD^2") throw new Error("no second parent");
+      return "";
+    },
+    gitRaw: async (args) => {
+      const key = args.join(" ");
+      if (key === "log -1 --pretty=%B") return "Implement thing\n\nSome body\n\n[ai-tracking]\n";
+      return "";
+    },
+  });
+
+  assert.deepEqual(result, { skipped: "tracking-commit" });
+});
+
+test("post-commit skips tracking commit with custom suffix from config", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({
+    enabled: true,
+    count_blank_lines: false,
+    tracking_commit_suffix: "[custom-suffix]",
+    auto_tracking_commit: true,
+  }), "utf8");
+
+  const result = await runCommitStats("post-commit", {
+    repoRoot,
+    env: {},
+    git: async (args) => {
+      if (args.join(" ") === "rev-parse --verify HEAD^2") throw new Error("no second parent");
+      return "";
+    },
+    gitRaw: async (args) => {
+      const key = args.join(" ");
+      if (key === "log -1 --pretty=%B") return "Implement thing\n\n[custom-suffix]\n";
+      return "";
+    },
+  });
+
+  assert.deepEqual(result, { skipped: "tracking-commit" });
 });

@@ -78,7 +78,11 @@ function myersDiff(a, b) {
 export async function loadConfig(repoRoot) {
   try {
     return JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
-  } catch {
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      const { logError } = await import("./logger.js");
+      await logError(repoRoot, "loadConfig", "failed to read config, using defaults", { error: error.message });
+    }
     return { enabled: true, count_blank_lines: false, tracking_commit_suffix: "[ai-tracking]", auto_tracking_commit: true };
   }
 }
