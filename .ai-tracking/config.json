@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "count_blank_lines": false,
+  "tracking_commit_suffix": "[custom]",
+  "auto_tracking_commit": true
+}

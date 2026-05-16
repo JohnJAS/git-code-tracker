@@ -327,7 +327,6 @@ const EXPECTED_GITIGNORE_LINES = [
   ".ai-tracking/*.lock",
   ".ai-tracking/archive/",
   ".ai-tracking/snapshots/",
-  ".ai-tracking/config.json",
 ];
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
