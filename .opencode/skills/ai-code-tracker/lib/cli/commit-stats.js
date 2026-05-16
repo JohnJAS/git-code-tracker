@@ -127,8 +127,10 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
   const subject = fullMessage.split(/\r?\n/)[0] || "";
   const config = await loadConfig(repoRoot);
-  const suffix = config.tracking_commit_suffix || "[ai-tracking]";
-  if (fullMessage.includes(suffix)) {
+  const suffix = config.tracking_commit_suffix !== undefined && config.tracking_commit_suffix !== null
+    ? config.tracking_commit_suffix
+    : "[ai-tracking]";
+  if (suffix && fullMessage.includes(suffix)) {
     await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
     return { skipped: "tracking-commit" };
   }
@@ -186,19 +188,27 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const autoTracking = config.auto_tracking_commit !== false;
 
   if (autoTracking) {
-    await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
-      operation: "write tracking commit message",
-    });
-    await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
-    await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
+    if (suffix) {
+      await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
+        operation: "write tracking commit message",
+      });
+      await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
+      await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
 
-    await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
-      cwd: repoRoot,
-      env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
-    });
+      await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
+        cwd: repoRoot,
+        env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
+      });
 
-    await fs.rm(pendingPath, { force: true });
-    await fs.rm(trackingMessagePath(repoRoot), { force: true });
+      await fs.rm(trackingMessagePath(repoRoot), { force: true });
+    } else {
+      await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
+      await gitImpl(["commit", "--amend", "--no-edit"], {
+        cwd: repoRoot,
+        env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
+      });
+      await logInfo(repoRoot, "post-commit", "tracking_commit_suffix empty: amended CSV into commit", { commitId: commitId.slice(0, 7) });
+    }
   } else {
     await gitImpl(["add", csvPath], { cwd: repoRoot });
     await gitImpl(["commit", "--amend", "--no-edit"], {
