@@ -9,7 +9,9 @@ import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/share
 const beforeSnapshots = new Map();
 const originalSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
-let latestBashSnapshot = null;
+let bashBaselineHashes = null;
+let bashBaselineRepoRoot = null;
+let bashFallbackTimer = null;
 
 export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "", replace = false }) {
   const timer = startTimer();
@@ -131,46 +133,72 @@ export default AiCodeTrackerPlugin;
 async function handleBashBefore({ cwd, tool, args }) {
   try {
     const repoRoot = await gitRepoRoot(cwd);
-    const hashes = await captureGitFileHashes(repoRoot);
-    latestBashSnapshot = { repoRoot, hashes };
-    await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(hashes).length });
+    const currentHashes = await captureGitFileHashes(repoRoot);
+
+    if (bashBaselineHashes && bashBaselineRepoRoot === repoRoot) {
+      await recordBashChanges(bashBaselineHashes, currentHashes, repoRoot);
+      bashBaselineHashes = null;
+    }
+
+    bashBaselineHashes = currentHashes;
+    bashBaselineRepoRoot = repoRoot;
+
+    if (bashFallbackTimer) clearTimeout(bashFallbackTimer);
+    bashFallbackTimer = setTimeout(async () => {
+      bashFallbackTimer = null;
+      if (!bashBaselineHashes || bashBaselineRepoRoot !== repoRoot) return;
+      try {
+        const afterHashes = await captureGitFileHashes(bashBaselineRepoRoot);
+        await recordBashChanges(bashBaselineHashes, afterHashes, bashBaselineRepoRoot);
+      } catch {}
+      bashBaselineHashes = null;
+    }, 3000);
+
+    await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(currentHashes).length });
   } catch (error) {
     await logInfo(cwd, "tool.execute.before", `bash-pre error: ${error.message}`);
   }
 }
 
 async function handleBashAfter({ cwd, tool, args }) {
+  if (bashFallbackTimer) {
+    clearTimeout(bashFallbackTimer);
+    bashFallbackTimer = null;
+  }
+
   try {
-    const entry = latestBashSnapshot;
-    if (!entry) return;
+    const repoRoot = bashBaselineRepoRoot ?? await gitRepoRoot(cwd).catch(() => null);
+    const prevHashes = bashBaselineHashes;
+    bashBaselineHashes = null;
 
-    latestBashSnapshot = null;
-    const { repoRoot, hashes: prevHashes } = entry;
-
-    const config = await loadConfig(repoRoot);
-    if (!config.enabled) return;
+    if (!prevHashes || !repoRoot) return;
 
     const currentHashes = await captureGitFileHashes(repoRoot);
-    const pending = await loadPendingLines(repoRoot);
-    let trackedCount = 0;
-
-    for (const [file, hash] of Object.entries(currentHashes)) {
-      if (shouldIgnore(file)) continue;
-      if (prevHashes[file] === hash) continue;
-
-      const absolutePath = path.join(repoRoot, file);
-      const content = await safeRead(absolutePath);
-      const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
-      if (lines.length > 0) {
-        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
-        trackedCount++;
-      }
-    }
-
-    await logInfo(repoRoot, "tool.execute.after", "bash-post processed", { trackedFiles: trackedCount });
+    await recordBashChanges(prevHashes, currentHashes, repoRoot);
   } catch (error) {
     await logInfo(cwd, "tool.execute.after", `bash-post error: ${error.message}`);
   }
+}
+
+async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
+  const config = await loadConfig(repoRoot);
+  if (!config.enabled) return;
+
+  let trackedCount = 0;
+  for (const [file, hash] of Object.entries(currentHashes)) {
+    if (shouldIgnore(file)) continue;
+    if (prevHashes[file] === hash) continue;
+
+    const absolutePath = path.join(repoRoot, file);
+    const content = await safeRead(absolutePath);
+    const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+    if (lines.length > 0) {
+      await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
+      trackedCount++;
+    }
+  }
+
+  await logInfo(repoRoot, "tool.execute.after", "bash-changes recorded", { trackedFiles: trackedCount });
 }
 
 async function captureGitFileHashes(repoRoot) {
