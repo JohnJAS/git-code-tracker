@@ -52,3 +52,4 @@ yooocen,4,110,true,a1a740e40bcbe3cd3719f9664d6fc89e8e7626d5,2026-05-16 00:18:25,
 yooocen,74,74,true,e5decefd4690fc8a8fa5e442411279d25f5ec41f,2026-05-16 10:31:13,feat: move tracking suffix to end of commit message body
 yooocen,0,16,true,f45aff4dc1b66e3ef69fc9e36ab0293dd7bc3b4d,2026-05-16 10:44:13,fix: sync claude skills copy with suffix position and config logging changes
 yooocen,47,144,true,e20a48de67ea6b621ff68e604c6d1502c9e0f604,2026-05-16 10:53:49,fix: detect bash file changes in handleBashBefore as fallback for unreliable tool.execute.after
+yooocen,0,3,true,94014a350fa775657946c6fcbbb2081279df3c5a,2026-05-16 10:56:55,test: verify cp-based file changes are tracked by bash fallback
