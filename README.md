@@ -149,7 +149,7 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --check
 
 ## 配置
 
-安装后自动生成 `.ai-tracking/config.json`（不提交到代码仓，仅本地使用）：
+安装后自动生成 `.ai-tracking/config.json`（提交到代码仓，团队共享配置）：
 
 ```json
 {
@@ -164,14 +164,14 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --check
 |--------|------|--------|------|
 | `enabled` | boolean | `true` | 设为 `false` 完全关闭追踪（hook 入口、git hooks 全部跳过） |
 | `count_blank_lines` | boolean | `false` | 是否将空行计入 total_lines |
-| `tracking_commit_suffix` | string | `"[ai-tracking]"` | 追踪 commit message 的后缀标记，也用于检测跳过已有追踪 commit |
+| `tracking_commit_suffix` | string | `"[ai-tracking]"` | 追踪 commit message 的后缀标记。设为空串 `""` 表示不追加后缀，改为 amend CSV 进原始 commit |
 | `auto_tracking_commit` | boolean | `true` | 设为 `false` 时不单独生成 `[ai-tracking]` commit，改为 amend CSV 进原始 commit |
 
 以下目录始终忽略，不可配置：`.ai-tracking/`、`.git/`、`node_modules/`、`dist/`、`build/`
 
 ## 数据存储
 
-所有追踪数据存储在项目的 `.ai-tracking/` 目录中（已在 gitignore 中排除，不提交到代码仓）：
+所有追踪数据存储在项目的 `.ai-tracking/` 目录中（临时文件已 gitignore，`config.json` 提交到代码仓）：
 
 ```
 .ai-tracking/
@@ -312,6 +312,30 @@ grep "post-commit.*complete" .ai-tracking/plugin.log
 **原因**：git hooks 和 Claude Code hooks 运行的是 `.opencode/skills/ai-code-tracker/lib/` 下的安装副本，不是 `src/`。修改 `src/` 后没有同步到 lib。
 
 **修复**：将 `src/` 所有文件同步到 `.opencode/skills/ai-code-tracker/lib/`。开发时需注意每次修改 `src/` 后都要同步。
+
+### 9. opencode 中 Bash 命令变更的文件未被追踪
+
+**现象**：在 opencode 中通过 Bash 工具修改文件（如 `cp`、重定向写入），AI 行数为 0。
+
+**原因**：opencode 的 `tool.execute.after` 事件在 Bash 命令完成时触发，但该事件并不可靠——有时不触发或触发时序过晚。依赖单一 `tool.execute.after` 捕获 Bash 变更会漏掉大量文件修改。
+
+**修复**：在 `handleBashBefore` 中增加 3 秒定时器作为 fallback。每次 Bash 命令开始时捕获文件 hash 基线，3 秒后自动对比当前 hash，发现变更立即记录。即使 `tool.execute.after` 未触发或延迟，定时器也能捕获变更。
+
+### 10. shouldIgnore glob 匹配错误跳过 .gitignore 等文件
+
+**现象**：编辑 `.gitignore` 文件后，AI 行数为 0。日志显示 `skipped: ignored`。
+
+**原因**：`shouldIgnore` 函数中 `.git/**` 的 glob 匹配使用 `pattern.slice(0, -3)` 截取前缀为 `.git`，导致所有以 `.git` 开头的文件（如 `.gitignore`、`.github/`）都被误判为应忽略的文件。
+
+**修复**：改为 `pattern.slice(0, -2)` 保留尾部 `/`，前缀变为 `.git/`，确保只匹配 `.git/` 目录下的文件。
+
+### 11. tracking_commit_suffix 设为空串无效
+
+**现象**：将 `config.json` 中 `tracking_commit_suffix` 设为 `""`，提交时仍追加 `[ai-tracking]` 后缀。
+
+**原因**：代码使用 `config.tracking_commit_suffix || "[ai-tracking]"` 获取后缀，空串 `""` 是 falsy 值，被 `||` 运算符跳过，回退到默认值。此外 `"".includes("")` 始终为 `true`，导致 post-commit 跳过所有 commit。
+
+**修复**：用 `!== undefined && !== null` 判断用户是否配置了后缀，空串视为合法值（不追加后缀）。suffix 为空时跳过 includes 检查，并在 autoTracking 分支中改用 `--amend` 直接将 CSV 追加到原始 commit。
 
 ## 已知限制
 
