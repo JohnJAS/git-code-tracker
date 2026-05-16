@@ -53,3 +53,4 @@ yooocen,74,74,true,e5decefd4690fc8a8fa5e442411279d25f5ec41f,2026-05-16 10:31:13,
 yooocen,0,16,true,f45aff4dc1b66e3ef69fc9e36ab0293dd7bc3b4d,2026-05-16 10:44:13,fix: sync claude skills copy with suffix position and config logging changes
 yooocen,47,144,true,e20a48de67ea6b621ff68e604c6d1502c9e0f604,2026-05-16 10:53:49,fix: detect bash file changes in handleBashBefore as fallback for unreliable tool.execute.after
 yooocen,0,3,true,94014a350fa775657946c6fcbbb2081279df3c5a,2026-05-16 10:56:55,test: verify cp-based file changes are tracked by bash fallback
+yooocen,0,0,true,94f9dc8d6423234bc28d554bd8201875cd77bee0,2026-05-16 11:29:59,Allow config.json to be committed to repo instead of gitignored
