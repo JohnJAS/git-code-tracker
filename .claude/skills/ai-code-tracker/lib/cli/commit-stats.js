@@ -124,10 +124,11 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     throw new Error("Refusing recursive ai-code-tracker post-commit execution");
   }
 
-  const subject = await gitImpl(["log", "-1", "--pretty=%s"], { cwd: repoRoot });
+  const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
+  const subject = fullMessage.split(/\r?\n/)[0] || "";
   const config = await loadConfig(repoRoot);
   const suffix = config.tracking_commit_suffix || "[ai-tracking]";
-  if (subject.includes(suffix)) {
+  if (fullMessage.includes(suffix)) {
     await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
     return { skipped: "tracking-commit" };
   }
@@ -155,8 +156,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const commitId = await gitImpl(["rev-parse", "HEAD"], { cwd: repoRoot });
   const author = await gitImpl(["log", "-1", "--pretty=%an"], { cwd: repoRoot });
   const date = formatCommitDate(await gitImpl(["log", "-1", "--pretty=%ad", "--date=iso-strict"], { cwd: repoRoot }));
-  const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
-  const messageSubject = fullMessage.split(/\r?\n/)[0] || subject;
+  const messageSubject = subject;
 
   let aiLines = pendingCommit.ai_lines;
   let totalLines = pendingCommit.total_lines;
@@ -248,9 +248,14 @@ function removeTrackingFiles(addedLines) {
 }
 
 function trackingMessage(fullMessage, suffix = "[ai-tracking]") {
-  const lines = String(fullMessage || "").replace(/\s+$/u, "").split(/\r?\n/);
+  const trimmed = String(fullMessage || "").replace(/\s+$/u, "");
+  const lines = trimmed.split(/\r?\n/);
   const subject = lines.shift() || "AI code tracking";
-  return [`${subject} ${suffix}`, ...lines].join("\n").trimEnd() + "\n";
+  const body = lines.join("\n").trimEnd();
+  if (body) {
+    return `${subject}\n${body}\n\n${suffix}\n`;
+  }
+  return `${subject}\n\n${suffix}\n`;
 }
 
 function formatCommitDate(value) {
