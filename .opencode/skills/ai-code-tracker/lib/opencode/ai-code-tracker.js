@@ -9,6 +9,8 @@ import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/share
 const beforeSnapshots = new Map();
 const originalSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
+const BASH_FALLBACK_MS = 3000;
+
 let bashBaselineHashes = null;
 let bashBaselineRepoRoot = null;
 let bashFallbackTimer = null;
