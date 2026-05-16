@@ -56,3 +56,4 @@ yooocen,0,3,true,94014a350fa775657946c6fcbbb2081279df3c5a,2026-05-16 10:56:55,te
 yooocen,0,0,true,94f9dc8d6423234bc28d554bd8201875cd77bee0,2026-05-16 11:29:59,Allow config.json to be committed to repo instead of gitignored
 yooocen,23,23,true,6583bf3b2493ed72244b55f90dc085e974794c1d,2026-05-16 11:34:43,fix: treat empty tracking_commit_suffix as no suffix instead of falling back to default
 yooocen,1,1,true,988a16e0ea04f04231bbc3255eb3185a006bb44c,2026-05-16 11:39:10,fix: correct glob matching in shouldIgnore to not skip .gitignore and similar files
+yooocen,15,15,true,03b6f4f10bf7f6c719aa1a010dbc7c98619bee7a,2026-05-16 11:45:47,"docs: add troubleshooting entries for bash fallback, glob matching, and empty suffix bugs"
