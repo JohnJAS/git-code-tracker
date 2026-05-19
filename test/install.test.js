@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkInstall, installIntoRepo } from "../src/cli/install.js";
+import { checkInstall, installIntoRepo, moduleDirFromFileUrl } from "../src/cli/install.js";
 import { configPath, opencodePluginPath } from "../src/tracker/paths.js";
 
 async function fakeRepo() {
@@ -271,6 +272,16 @@ async function fileExists(p) {
 }
 
 const COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
+
+test("moduleDirFromFileUrl converts Windows drive-letter file URLs to absolute paths", () => {
+  const fileUrl = "file:///D:/repo/.opencode/skills/ai-code-tracker/lib/cli/install.js";
+
+  const moduleDir = moduleDirFromFileUrl(fileUrl, path.win32, (url) => fileURLToPath(url, { windows: true }));
+
+  assert.equal(moduleDir, "D:\\repo\\.opencode\\skills\\ai-code-tracker\\lib\\cli");
+  assert.equal(path.win32.isAbsolute(moduleDir), true);
+  assert.doesNotMatch(moduleDir, /^\/[A-Za-z]:/);
+});
 
 test("opencode detected: installs only opencode plugin and commands", async () => {
   const repoRoot = await fakeRepo();

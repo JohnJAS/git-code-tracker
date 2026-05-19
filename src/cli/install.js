@@ -18,6 +18,10 @@ const execFileAsync = promisify(execFile);
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
 
+export function moduleDirFromFileUrl(fileUrl, pathModule = path, fileUrlToPath = fileURLToPath) {
+  return pathModule.dirname(fileUrlToPath(fileUrl));
+}
+
 function skillRelativeDir(repoRoot) {
   // Deterministic path: prefer .opencode if it exists, else .claude
   // This ensures git hooks reference the same path regardless of which
@@ -27,7 +31,7 @@ function skillRelativeDir(repoRoot) {
   const claudeDir = path.join(repoRoot, ".claude", "skills", "ai-code-tracker");
   if (fsSync.existsSync(claudeDir)) return ".claude/skills/ai-code-tracker";
   // Fallback: derive from script location
-  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const scriptDir = moduleDirFromFileUrl(import.meta.url);
   const skillRoot = path.resolve(scriptDir, "..", "..");
   const rel = path.relative(repoRoot, skillRoot).replace(/\\/g, "/");
   if (rel.startsWith("..")) return ".opencode/skills/ai-code-tracker";
@@ -482,7 +486,7 @@ const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", 
 const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
 
 async function deployCommands(repoRoot, tool) {
-  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const scriptDir = moduleDirFromFileUrl(import.meta.url);
   let commandsDir = path.join(path.dirname(scriptDir), "commands", tool);
   if (!await exists(commandsDir)) {
     const projectRoot = await gitRepoRoot(scriptDir);
