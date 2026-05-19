@@ -58,3 +58,4 @@ yooocen,23,23,true,6583bf3b2493ed72244b55f90dc085e974794c1d,2026-05-16 11:34:43,
 yooocen,1,1,true,988a16e0ea04f04231bbc3255eb3185a006bb44c,2026-05-16 11:39:10,fix: correct glob matching in shouldIgnore to not skip .gitignore and similar files
 yooocen,15,15,true,03b6f4f10bf7f6c719aa1a010dbc7c98619bee7a,2026-05-16 11:45:47,"docs: add troubleshooting entries for bash fallback, glob matching, and empty suffix bugs"
 yooocen,21,21,true,6f4fe70777c8c4993738a5b7b31ac91220cd6a56,2026-05-17 10:00:54,"test: add cube, factorial, fibonacci, isPalindrome test functions"
+yooocen,0,24,false,5d1b2833a21749ccd0749c4440b54f2c559dd042,2026-05-19 14:22:57,Fix Windows install command path resolution
