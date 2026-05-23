@@ -337,6 +337,14 @@ grep "post-commit.*complete" .ai-tracking/plugin.log
 
 **修复**：用 `!== undefined && !== null` 判断用户是否配置了后缀，空串视为合法值（不追加后缀）。suffix 为空时跳过 includes 检查，并在 autoTracking 分支中改用 `--amend` 直接将 CSV 追加到原始 commit。
 
+### 12. commit 前重命名文件导致 pending lines 匹配不到
+
+**现象**：AI 先修复代码或创建新文件，`pending-lines.json` 已经记录了旧路径下的 AI 新增行；commit 前文件被重命名后，提交统计中 AI 行数为 0 或明显偏低。
+
+**原因**：编辑阶段的 pending lines 按编辑时路径存储，例如 `src/draft.js`；commit 阶段的 staged diff 使用提交时的新路径，例如 `src/final.js`。旧逻辑只按同一路径匹配 `pendingLines[filePath]`，不会把旧路径的 pending 记录映射到新路径。对于从未 commit 过的新文件，Git 也不一定能识别 rename，通常只看到一个新文件。
+
+**修复**：pre-commit 阶段使用 `git diff --cached --find-renames` 提取 Git rename 映射，并在 `buildPendingCommit` 中支持旧路径到新路径匹配。对于新建后改名、Git 无法识别 rename 的场景，增加“pending 旧路径已不存在时按内容匹配新 staged 文件”的兜底逻辑。`matched_lines` 仍记录原 pending 路径，确保 post-commit 能正确消费旧路径下的 pending 行。
+
 ## 已知限制
 
 ### 并行编辑导致 AI 行数偏低
