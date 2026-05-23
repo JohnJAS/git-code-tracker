@@ -60,3 +60,4 @@ yooocen,15,15,true,03b6f4f10bf7f6c719aa1a010dbc7c98619bee7a,2026-05-16 11:45:47,
 yooocen,21,21,true,6f4fe70777c8c4993738a5b7b31ac91220cd6a56,2026-05-17 10:00:54,"test: add cube, factorial, fibonacci, isPalindrome test functions"
 yooocen,0,24,false,5d1b2833a21749ccd0749c4440b54f2c559dd042,2026-05-19 14:22:57,Fix Windows install command path resolution
 yooocen,0,365,false,5748833e614ea05de4290bd12656a677644bf336,2026-05-23 09:15:31,fix: track AI lines after file rename
+yooocen,0,4,true,a3b2ff50ffb069dadb5d4002ccc02fc4c2a338e2,2026-05-23 09:43:30,docs: add troubleshooting entry for file rename before commit causing pending lines mismatch
