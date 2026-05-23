@@ -26,8 +26,40 @@ export function parseAddedLinesFromDiff(diffText) {
   return result;
 }
 
+export function parseRenamedFilesFromDiff(diffText) {
+  const result = {};
+  let renameFrom = null;
+  let renameTo = null;
+
+  for (const rawLine of String(diffText || "").split(/\r?\n/)) {
+    if (rawLine.startsWith("diff --git ")) {
+      addRename(result, renameFrom, renameTo);
+      renameFrom = null;
+      renameTo = null;
+      continue;
+    }
+
+    if (rawLine.startsWith("rename from ")) {
+      renameFrom = rawLine.slice("rename from ".length).trim();
+      continue;
+    }
+
+    if (rawLine.startsWith("rename to ")) {
+      renameTo = rawLine.slice("rename to ".length).trim();
+    }
+  }
+
+  addRename(result, renameFrom, renameTo);
+  return result;
+}
+
 function normalizeDiffPath(file) {
   if (file === "/dev/null") return null;
   if (file.startsWith("b/")) return file.slice(2);
   return file;
+}
+
+function addRename(result, renameFrom, renameTo) {
+  if (!renameFrom || !renameTo) return;
+  result[renameFrom] = renameTo;
 }

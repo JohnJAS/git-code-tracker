@@ -34,6 +34,35 @@ test("pre-commit writes pending commit without staging csv", async () => {
   });
 });
 
+test("pre-commit matches pending lines when a new AI-created file is renamed before commit", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await savePendingLines(repoRoot, { "src/draft.js": [{ content: "ai line", consumed: false }] });
+
+  const diff = `diff --git a/src/final.js b/src/final.js
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/final.js
+@@ -0,0 +1,2 @@
++ai line
++human line
+`;
+
+  await runCommitStats("pre-commit", {
+    repoRoot,
+    env: {},
+    gitRaw: async () => diff,
+    processTreeReader: async () => "sh\ngit\nbash",
+  });
+
+  assert.deepEqual(JSON.parse(await fs.readFile(pendingCommitPath(repoRoot), "utf8")), {
+    ai_lines: 1,
+    total_lines: 2,
+    is_ai_commit: false,
+    matched_lines: { "src/draft.js": ["ai line"] },
+  });
+});
+
 test("pre-commit marks commits created by AI via process tree", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
 

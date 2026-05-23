@@ -5,7 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { appendRecord, pruneStaleRecords } from "../tracker/csv.js";
 import { git, gitRaw, gitRepoRoot } from "../tracker/git.js";
-import { parseAddedLinesFromDiff } from "../tracker/diff.js";
+import { parseAddedLinesFromDiff, parseRenamedFilesFromDiff } from "../tracker/diff.js";
 import { buildPendingCommit } from "../tracker/stats.js";
 import { consumeMatchedLines, loadPendingLines, savePendingLines } from "../tracker/lineStore.js";
 import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
@@ -92,11 +92,18 @@ async function runPrePush({ repoRoot, now = new Date() }) {
 
 async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
   const timer = startTimer();
-  const diff = await gitRawImpl(["diff", "--cached", "--unified=0"], { cwd: repoRoot });
+  const diff = await gitRawImpl(["diff", "--cached", "--unified=0", "--find-renames"], { cwd: repoRoot });
   const addedLines = removeTrackingFiles(parseAddedLinesFromDiff(diff));
+  const renamedFiles = parseRenamedFilesFromDiff(diff);
   const pendingLines = await loadPendingLines(repoRoot);
   const config = await loadConfig(repoRoot);
-  const pendingCommit = buildPendingCommit({ pendingLines, addedLines, countBlankLines: config.count_blank_lines });
+  const pendingCommit = buildPendingCommit({
+    pendingLines,
+    addedLines,
+    countBlankLines: config.count_blank_lines,
+    renamedFiles,
+    missingPendingFiles: await missingPendingFiles(repoRoot, pendingLines),
+  });
 
   const withCommitSource = {
     ...pendingCommit,
@@ -116,6 +123,18 @@ async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
     durationMs: timer.elapsedMs(),
   });
   return { written: withCommitSource };
+}
+
+async function missingPendingFiles(repoRoot, pendingLines) {
+  const missing = [];
+  for (const filePath of Object.keys(pendingLines ?? {})) {
+    try {
+      await fs.access(path.join(repoRoot, filePath));
+    } catch {
+      missing.push(filePath);
+    }
+  }
+  return missing;
 }
 
 async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {

@@ -93,3 +93,24 @@ test("buildPendingCommit includes blank lines in total when countBlankLines is t
   assert.equal(result.total_lines, 4);
   assert.equal(result.ai_lines, 3);
 });
+
+test("buildPendingCommit matches renamed files using the original pending path", () => {
+  const pendingLines = {
+    "src/old.js": [E("ai line")],
+  };
+  const addedLines = {
+    "src/new.js": ["ai line", "human line"],
+  };
+
+  assert.deepEqual(buildPendingCommit({
+    pendingLines,
+    addedLines,
+    renamedFiles: { "src/old.js": "src/new.js" },
+  }), {
+    ai_lines: 1,
+    total_lines: 2,
+    matched_lines: {
+      "src/old.js": ["ai line"],
+    },
+  });
+});
