@@ -169,7 +169,9 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --check
 
 #### `auto_tracking_commit: false` 行为
 
-此模式下 post-commit hook **完全不触碰 CSV**，不写入、不 stage、不 amend、不 commit。CSV 的记录由你自行管理，hook 不会自动追加任何行。
+此模式下 post-commit hook **写入 CSV 记录到工作树**，但不 stage、不 amend、不 commit。每次提交后 CSV 会多一条当前 commit 的记录，留在工作树中由你自行决定何时 `git add` + `git commit`。
+
+hook 通过 `commit_id` 去重，同一条记录不会重复追加。如果你的 commit 已包含当前 commit_id 的记录，工作树不会产生额外改动。
 
 以下目录始终忽略，不可配置：`.ai-tracking/`、`.git/`、`node_modules/`、`dist/`、`build/`
 
