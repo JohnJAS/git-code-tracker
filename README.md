@@ -345,6 +345,24 @@ grep "post-commit.*complete" .ai-tracking/plugin.log
 
 **修复**：pre-commit 阶段使用 `git diff --cached --find-renames` 提取 Git rename 映射，并在 `buildPendingCommit` 中支持旧路径到新路径匹配。对于新建后改名、Git 无法识别 rename 的场景，增加“pending 旧路径已不存在时按内容匹配新 staged 文件”的兜底逻辑。`matched_lines` 仍记录原 pending 路径，确保 post-commit 能正确消费旧路径下的 pending 行。
 
+### 13. pruneStaleRecords 清空其他用户/分支的 CSV 记录
+
+**现象**：用户 A 在自己分支 `feature-a` commit 后，用户 B 在另一分支 `feature-b` 的 CSV 记录被清空。
+
+**原因**：`pruneCsvRecordsIfPossible` 在每次 commit 前用 `git merge-base --is-ancestor <commit_id> HEAD` 检查所有 `.csv` 文件的每个 commit_id。如果某个 commit_id 不是当前分支 HEAD 的祖先（例如在另一分支上），该记录会被删除。且 `pruneStaleRecords` 遍历 `.ai-tracking/` 下所有 `.csv` 文件，不限制作者。
+
+**修复**：
+- `pruneStaleRecords` 新增 `author` 参数，只处理当前作者的 `.csv` 文件
+- `pruneCsvRecordsIfPossible` 改用 `git branch --all --contains <commit_id>` 判断 commit 是否存在于**任一分支**，而非仅当前 HEAD
+
+### 14. Cherry-pick 后旧 commit 记录被 prune 误删
+
+**现象**：从其他分支 cherry-pick 一个 commit 后，新 commit 生成新 ID，旧 commit ID 的记录在下次 commit 时被 prune 删除。
+
+**原因**：旧逻辑使用 `git merge-base --is-ancestor <commit_id> HEAD` 判断 commit 是否存活。Cherry-pick 的源 commit 不在当前分支的祖先链中，被误判为 stale 删除。
+
+**修复**：与问题 13 相同，改用 `git branch --all --contains <commit_id>`。源 commit 存在于源分支中（如 `main`），不会被误删。新旧两条记录共存，AI lines 均已正确记录。
+
 ## 已知限制
 
 ### 并行编辑导致 AI 行数偏低

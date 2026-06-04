@@ -248,7 +248,7 @@ test("post-commit writes csv and consumes matched lines", async () => {
       const key = args.join(" ");
       if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("merge-base --is-ancestor")) return "";
+      if (key.startsWith("branch --all --contains")) return "main\n";
       if (key === "rev-parse HEAD") return "abc123";
       if (key === "log -1 --pretty=%an") return "cyd";
       if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-05T12:34:56+08:00";
@@ -292,7 +292,7 @@ test("post-commit copies AI lines from cherry-pick source", async () => {
       const key = args.join(" ");
       if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("merge-base --is-ancestor")) return "";
+      if (key.startsWith("branch --all --contains")) return "main\n";
       if (key === "rev-parse HEAD") return "abc123";
       if (key === "log -1 --pretty=%an") return "dev";
       if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";
@@ -331,7 +331,7 @@ test("post-commit does not copy AI lines when no cherry-pick source", async () =
       const key = args.join(" ");
       if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
       if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("merge-base --is-ancestor")) return "";
+      if (key.startsWith("branch --all --contains")) return "main\n";
       if (key === "rev-parse HEAD") return "abc123";
       if (key === "log -1 --pretty=%an") return "dev";
       if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";

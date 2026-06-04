@@ -380,8 +380,8 @@ async function pruneCsvRecordsIfPossible(repoRoot, gitImpl) {
     }
     await pruneStaleRecords(repoRoot, async (commitId) => {
       try {
-        await gitImpl(["merge-base", "--is-ancestor", commitId, "HEAD"], { cwd: repoRoot });
-        return true;
+        const branches = await gitImpl(["branch", "--all", "--contains", commitId], { cwd: repoRoot });
+        return branches.trim().length > 0;
       } catch {
         return false;
       }

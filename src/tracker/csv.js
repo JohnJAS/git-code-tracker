@@ -38,6 +38,18 @@ export async function appendRecord(csvPath, record) {
   await writeRecords(csvPath, records);
 }
 
+export async function removeRecords(csvPath, predicate) {
+  let records = [];
+  try {
+    records = parseCsv(await fs.readFile(csvPath, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return;
+  }
+  const kept = records.filter((r) => !predicate(r));
+  if (kept.length !== records.length) await writeRecords(csvPath, kept);
+}
+
 export async function readRecords(repoRoot) {
   const dir = trackerDir(repoRoot);
   let entries;
