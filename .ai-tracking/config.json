@@ -2,7 +2,7 @@
   "enabled": true,
   "count_blank_lines": false,
   "tracking_commit_suffix": "[custom]",
-  "auto_tracking_commit": false,
+  "auto_tracking_commit": true,
   "installed_version": "0.0.0",
   "check_updates": true
 }
