@@ -192,19 +192,19 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   }
 
   const csvPath = authorCsvPath(repoRoot, author);
-  await appendRecord(csvPath, {
-    author,
-    ai_lines: aiLines,
-    total_lines: totalLines,
-    is_ai_commit: pendingCommit.is_ai_commit === true,
-    commit_id: commitId,
-    date,
-    message: messageSubject,
-  });
-
   const autoTracking = config.auto_tracking_commit !== false;
 
   if (autoTracking) {
+    await appendRecord(csvPath, {
+      author,
+      ai_lines: aiLines,
+      total_lines: totalLines,
+      is_ai_commit: pendingCommit.is_ai_commit === true,
+      commit_id: commitId,
+      date,
+      message: messageSubject,
+    });
+
     await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
       operation: "write tracking commit message",
     });
@@ -220,7 +220,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     await fs.rm(trackingMessagePath(repoRoot), { force: true });
   } else {
     await fs.rm(pendingPath, { force: true });
-    await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV written to working tree only", { commitId: commitId.slice(0, 7) });
+    await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV managed by user", { commitId: commitId.slice(0, 7) });
   }
 
   const pendingLines = await loadPendingLines(repoRoot);
