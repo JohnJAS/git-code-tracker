@@ -219,12 +219,8 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     await fs.rm(pendingPath, { force: true });
     await fs.rm(trackingMessagePath(repoRoot), { force: true });
   } else {
-    await gitImpl(["add", csvPath], { cwd: repoRoot });
-    await gitImpl(["commit", "--amend", "--no-edit"], {
-      cwd: repoRoot,
-      env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
-    });
-    await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: amended CSV into commit", { commitId: commitId.slice(0, 7) });
+    await fs.rm(pendingPath, { force: true });
+    await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV written to working tree only", { commitId: commitId.slice(0, 7) });
   }
 
   const pendingLines = await loadPendingLines(repoRoot);
