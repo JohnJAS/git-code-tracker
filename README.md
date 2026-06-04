@@ -51,7 +51,7 @@ sequenceDiagram
 2. 编辑完成后，hook 将文件新内容与快照做 diff，计算出 AI 新增的行
 3. 新增行记录到 `.ai-tracking/pending-lines.json`
 4. `git commit` 时，pre-commit hook 将 pending lines 与 staged diff 匹配，生成统计
-5. post-commit hook 将统计数据写入 CSV，并创建一条 `[ai-tracking]` 追踪提交
+5. post-commit hook 将统计数据写入 CSV。`auto_tracking_commit: true`（默认）时还会创建一条追踪提交；`false` 时仅写入工作树，用户自行提交
 
 ### Snapshot（快照）
 
@@ -165,7 +165,13 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --check
 | `enabled` | boolean | `true` | 设为 `false` 完全关闭追踪（hook 入口、git hooks 全部跳过） |
 | `count_blank_lines` | boolean | `false` | 是否将空行计入 total_lines |
 | `tracking_commit_suffix` | string | `"[ai-tracking]"` | 追踪 commit message 的后缀标记。设为空串 `""` 表示不追加后缀，改为 amend CSV 进原始 commit |
-| `auto_tracking_commit` | boolean | `true` | 设为 `false` 时不单独生成 `[ai-tracking]` commit，改为 amend CSV 进原始 commit |
+| `auto_tracking_commit` | boolean | `true` | 设为 `false` 时 CSV 仅写入工作树，不 stage 不 commit，由用户自行决定是否提交 |
+
+#### `auto_tracking_commit: false` 行为
+
+此模式下 CSV **仅写入工作树**，不 stage、不 amend、不 commit。hook 通过 `commit_id` 去重：如果 CSV 中已有当前 commit 的记录，不会再追加。
+
+这意味着如果你的 commit 已包含 CSV（例如手动 stage 后提交），工作树不会产生额外改动。CSV 始终由你决定何时入库。
 
 以下目录始终忽略，不可配置：`.ai-tracking/`、`.git/`、`node_modules/`、`dist/`、`build/`
 
@@ -193,7 +199,10 @@ AI 编辑文件 → pending-lines.json 记录新增行
                     ↓
 git commit (pre-commit) → pending-commit.json 记录统计结果
                     ↓
-git commit (post-commit) → authors/*.csv 写入最终记录 + [ai-tracking] commit
+git commit (post-commit) → authors/*.csv 写入最终记录
+                    │
+                    ├─ auto_tracking: true  → [ai-tracking] commit（自动提交 CSV）
+                    └─ auto_tracking: false → 仅写入工作树，用户自行决定是否提交 CSV
                     ↓
 git push (pre-push) → archive/ 归档清理
 ```
