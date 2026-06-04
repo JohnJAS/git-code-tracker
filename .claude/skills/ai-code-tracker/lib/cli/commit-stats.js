@@ -372,6 +372,12 @@ function includesAiAgent(processTree) {
 async function pruneCsvRecordsIfPossible(repoRoot, gitImpl) {
   try {
     await gitImpl(["rev-parse", "--verify", "HEAD"], { cwd: repoRoot });
+    let author;
+    try {
+      author = await gitImpl(["config", "user.name"], { cwd: repoRoot });
+    } catch {
+      author = null;
+    }
     await pruneStaleRecords(repoRoot, async (commitId) => {
       try {
         await gitImpl(["merge-base", "--is-ancestor", commitId, "HEAD"], { cwd: repoRoot });
@@ -379,7 +385,7 @@ async function pruneCsvRecordsIfPossible(repoRoot, gitImpl) {
       } catch {
         return false;
       }
-    });
+    }, author || undefined);
   } catch {
     // Pruning should not block commits; the next successful tracker run can retry.
   }

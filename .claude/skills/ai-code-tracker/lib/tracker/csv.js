@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { trackerDir } from "./paths.js";
+import { safeFileName, trackerDir } from "./paths.js";
 
 export const CSV_HEADER = "author,ai_lines,total_lines,is_ai_commit,commit_id,date,message";
 
@@ -57,7 +57,7 @@ export async function readRecords(repoRoot) {
   return records;
 }
 
-export async function pruneStaleRecords(repoRoot, isCommitInHistory) {
+export async function pruneStaleRecords(repoRoot, isCommitInHistory, author) {
   const dir = trackerDir(repoRoot);
   let entries;
   try {
@@ -67,9 +67,11 @@ export async function pruneStaleRecords(repoRoot, isCommitInHistory) {
     throw error;
   }
 
+  const authorFilename = author ? `${safeFileName(author)}.csv` : null;
   let pruned = 0;
   for (const entry of entries) {
     if (!entry.endsWith(".csv")) continue;
+    if (authorFilename && entry !== authorFilename) continue;
     const csvPath = path.join(dir, entry);
     const records = parseCsv(await fs.readFile(csvPath, "utf8"));
     const kept = [];
