@@ -175,8 +175,13 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
 
   // Shared: config + gitignore + git hooks
   if (!await exists(configPath(repoRoot))) {
+    let installedVersion = "0.1.0";
+    try {
+      const pkg = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
+      if (pkg.name === "ai-commit-statistic-skill") installedVersion = pkg.version || installedVersion;
+    } catch {}
     await logInfo(repoRoot, "install", "writing tracker config");
-    await atomicWriteJson(configPath(repoRoot), expectedConfigObject());
+    await atomicWriteJson(configPath(repoRoot), expectedConfigObject(installedVersion));
   }
   await updateGitignore(repoRoot);
 
@@ -331,6 +336,9 @@ const EXPECTED_GITIGNORE_LINES = [
   ".ai-tracking/*.lock",
   ".ai-tracking/archive/",
   ".ai-tracking/snapshots/",
+  ".ai-tracking/config.json",
+  ".ai-tracking/available-update.json",
+  ".ai-tracking/backup-pre-update/",
 ];
 
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
@@ -472,17 +480,22 @@ function expectedPluginContent() {
   return 'export { AiCodeTrackerPlugin } from "../skills/ai-code-tracker/scripts/opencode-plugin.js";\n';
 }
 
-function expectedConfigObject() {
+function expectedConfigObject(version) {
   return {
     enabled: true,
     count_blank_lines: false,
     tracking_commit_suffix: "[ai-tracking]",
     auto_tracking_commit: true,
+    installed_version: version || "0.1.0",
+    source_repo: "https://github.com/yooocen/ai-commit-statistic-skill",
+    check_updates: true,
+    update_check_interval_hours: 24,
+    last_update_check: null,
   };
 }
 
-const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
-const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md"];
+const OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md", "ai-update.md"];
+const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md", "ai-update.md"];
 
 async function deployCommands(repoRoot, tool) {
   const scriptDir = moduleDirFromFileUrl(import.meta.url);

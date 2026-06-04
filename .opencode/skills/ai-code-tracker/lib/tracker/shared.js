@@ -97,7 +97,7 @@ const DEFAULT_IGNORE = [
 
 export function shouldIgnore(filePath, patterns = DEFAULT_IGNORE) {
   return patterns.some((pattern) => {
-    if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -2));
+    if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -3));
     return filePath === pattern;
   });
 }

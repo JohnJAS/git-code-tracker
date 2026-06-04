@@ -5,6 +5,7 @@ import { git, gitRepoRoot } from "../tracker/git.js";
 import { appendPendingLines, loadPendingLines } from "../tracker/lineStore.js";
 import { logInfo, startTimer } from "../tracker/logger.js";
 import { addedLines, loadConfig, shouldIgnore, safeRead } from "../tracker/shared.js";
+import { checkVersion } from "../tracker/updater.js";
 
 const beforeSnapshots = new Map();
 const originalSnapshots = new Map();
@@ -53,6 +54,15 @@ export const AiCodeTrackerPlugin = async ({ directory, worktree, client } = {}) 
 
   await log(client, "info", "ai-code-tracker plugin initialized", { cwd });
   if (repoRootForLog) await logInfo(repoRootForLog, "plugin.init", "ai-code-tracker plugin initialized", { cwd });
+
+  // Async version check — don't block initialization
+  if (repoRootForLog) {
+    checkVersion(repoRootForLog).then((update) => {
+      if (update) {
+        log(client, "warn", `ai-code-tracker 升级可用: ${update.local_version} → ${update.remote_version}，运行 /ai-update 升级`);
+      }
+    }).catch(() => {});
+  }
 
   return {
     event: async ({ event }) => {

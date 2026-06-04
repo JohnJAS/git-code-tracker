@@ -7,3 +7,6 @@
 .ai-tracking/*.lock
 .ai-tracking/archive/
 .ai-tracking/snapshots/
+.ai-tracking/available-update.json
+.ai-tracking/backup-pre-update/
+.ai-tracking/config.json
