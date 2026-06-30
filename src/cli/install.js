@@ -487,7 +487,7 @@ function expectedConfigObject(version) {
     tracking_commit_suffix: "[ai-tracking]",
     auto_tracking_commit: true,
     installed_version: version || "0.1.0",
-    source_repo: "https://github.com/yooocen/ai-commit-statistic-skill",
+    source_repo: "https://github.com/yooocen/git-code-tracker",
     check_updates: true,
     update_check_interval_hours: 24,
     last_update_check: null,

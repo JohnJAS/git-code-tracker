@@ -44,7 +44,7 @@ async function fakeRepo() {
   await fs.writeFile(configPath(repoRoot), JSON.stringify({
     enabled: true,
     installed_version: "0.1.0",
-    source_repo: "https://github.com/yooocen/ai-commit-statistic-skill",
+    source_repo: "https://github.com/yooocen/git-code-tracker",
     check_updates: false,
     update_check_interval_hours: 24,
     last_update_check: null,
@@ -57,7 +57,7 @@ function fakeConfig(repoRoot, overrides = {}) {
     fs.writeFile(configPath(repoRoot), JSON.stringify({
       enabled: true,
       installed_version: "0.1.0",
-      source_repo: "https://github.com/yooocen/ai-commit-statistic-skill",
+      source_repo: "https://github.com/yooocen/git-code-tracker",
       check_updates: false,
       update_check_interval_hours: 24,
       last_update_check: null,
@@ -82,7 +82,7 @@ test("checkVersion returns null when check_updates is false", async () => {
 test("checkVersion detects new version via GitHub API", async () => {
   const repoRoot = await fakeRepo();
   await fakeConfig(repoRoot, { check_updates: true });
-  mockGitHubApi({ tag_name: "v0.2.0", html_url: "https://github.com/yooocen/ai-commit-statistic-skill/releases/tag/v0.2.0", tarball_url: "https://api.github.com/repos/yooocen/ai-commit-statistic-skill/tarball/v0.2.0", body: "Bug fixes" });
+  mockGitHubApi({ tag_name: "v0.2.0", html_url: "https://github.com/yooocen/git-code-tracker/releases/tag/v0.2.0", tarball_url: "https://api.github.com/repos/yooocen/git-code-tracker/tarball/v0.2.0", body: "Bug fixes" });
   try {
     const result = await checkVersion(repoRoot);
     assert.ok(result);

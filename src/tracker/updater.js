@@ -10,7 +10,7 @@ const SKILL_DIR = ".opencode/skills/ai-code-tracker";
 const BACKUP_DIR = ".ai-tracking/backup-pre-update";
 const AVAILABLE_UPDATE_FILE = ".ai-tracking/available-update.json";
 
-const GITHUB_API = "https://api.github.com/repos/yooocen/ai-commit-statistic-skill/releases/latest";
+const GITHUB_API = "https://api.github.com/repos/yooocen/git-code-tracker/releases/latest";
 
 export function parseTag(tag) {
   return (tag || "").replace(/^v/, "");

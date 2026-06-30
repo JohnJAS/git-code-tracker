@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "type": "module",
   "private": true,
-  "homepage": "https://github.com/yooocen/ai-commit-statistic-skill",
+  "homepage": "https://github.com/yooocen/git-code-tracker",
   "scripts": {
     "test": "node --test"
   }
