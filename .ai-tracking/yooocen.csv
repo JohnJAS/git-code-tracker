@@ -69,3 +69,4 @@ yooocen,127,127,true,5d674504c6017d58f1abdbfc22591dc9aae76b99,2026-06-30 10:02:1
 yooocen,1,1,true,f0107641429c22012b35143efe2d23f779ffd220,2026-06-30 10:05:12,chore: bump version to v1.0.2
 yooocen,10,10,true,169c9da92f8c556cad9d775deabd15e597bce937,2026-06-30 10:19:00,fix: correct GitHub repo URL from ai-commit-statistic-skill to git-code-tracker
 yooocen,15,15,true,b05ea670bbde508700969a9d59f698128a4fed2f,2026-06-30 10:30:42,fix: correct updater paths for scripts/commands/SKILL.md in release tarball
+yooocen,78,78,true,90f7bc3e9216af940eab06004b3be4f62933d443,2026-06-30 10:56:25,fix: sync .claude skill dir during upgrade and rollback
