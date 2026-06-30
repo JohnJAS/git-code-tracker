@@ -7,7 +7,9 @@ import { atomicWriteJson } from "./lock.js";
 import { logInfo, startTimer } from "./logger.js";
 
 const SKILL_DIR = ".opencode/skills/ai-code-tracker";
+const CLAUDE_SKILL_DIR = ".claude/skills/ai-code-tracker";
 const BACKUP_DIR = ".ai-tracking/backup-pre-update";
+const CLAUDE_BACKUP_DIR = ".ai-tracking/backup-pre-update-claude";
 const AVAILABLE_UPDATE_FILE = ".ai-tracking/available-update.json";
 
 const GITHUB_API = "https://api.github.com/repos/yooocen/git-code-tracker/releases/latest";
@@ -98,8 +100,17 @@ export async function backup(repoRoot) {
   const dest = path.join(repoRoot, BACKUP_DIR);
 
   await fs.rm(dest, { recursive: true, force: true });
-
   await fs.cp(src, dest, { recursive: true, force: true });
+
+  const claudeSrc = path.join(repoRoot, CLAUDE_SKILL_DIR);
+  const claudeDest = path.join(repoRoot, CLAUDE_BACKUP_DIR);
+  await fs.rm(claudeDest, { recursive: true, force: true });
+  try {
+    await fs.cp(claudeSrc, claudeDest, { recursive: true, force: true });
+  } catch {
+    // .claude skill dir may not exist; skip silently
+  }
+
   await logInfo(repoRoot, "updater.backup", "backup created", { durationMs: timer.elapsedMs() });
 }
 
@@ -153,6 +164,15 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
       await fs.copyFile(skillMdSrc, path.join(skillDest, "SKILL.md"));
     } catch {}
 
+    const claudeSkillDest = path.join(repoRoot, CLAUDE_SKILL_DIR);
+    try {
+      await fs.stat(claudeSkillDest);
+      await fs.cp(skillDest, claudeSkillDest, { recursive: true, force: true });
+      await logInfo(repoRoot, "updater.upgrade", "synced .claude skill dir");
+    } catch {
+      // .claude skill dir may not exist; skip silently
+    }
+
     await logInfo(repoRoot, "updater.upgrade", "running install.js");
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
@@ -196,6 +216,15 @@ export async function rollback(repoRoot) {
   await fs.rm(dest, { recursive: true, force: true });
   await fs.cp(backupSrc, dest, { recursive: true, force: true });
   await fs.rm(backupSrc, { recursive: true, force: true });
+
+  const claudeBackupSrc = path.join(repoRoot, CLAUDE_BACKUP_DIR);
+  const claudeStat = await fs.stat(claudeBackupSrc).catch(() => null);
+  if (claudeStat) {
+    const claudeDest = path.join(repoRoot, CLAUDE_SKILL_DIR);
+    await fs.rm(claudeDest, { recursive: true, force: true });
+    await fs.cp(claudeBackupSrc, claudeDest, { recursive: true, force: true });
+    await fs.rm(claudeBackupSrc, { recursive: true, force: true });
+  }
 
   await logInfo(repoRoot, "updater.rollback", "rollback complete", { durationMs: timer.elapsedMs() });
 }
