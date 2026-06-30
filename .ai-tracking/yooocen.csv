@@ -67,3 +67,4 @@ yooocen,50,50,false,072cab8541322889e59fcf64bfb27d8c6fd3600c,2026-06-04 11:56:07
 yooocen,4,85,false,256c8ac339bd7abad66aa0b24d2fc74261e8da14,2026-06-04 22:01:01,"fix: restore appendRecord for auto_tracking_commit false, update docs"
 yooocen,127,127,true,5d674504c6017d58f1abdbfc22591dc9aae76b99,2026-06-30 10:02:13,fix: skip tracking commit when CSV already included in commit (auto_tracking_commit true)
 yooocen,1,1,true,f0107641429c22012b35143efe2d23f779ffd220,2026-06-30 10:05:12,chore: bump version to v1.0.2
+yooocen,10,10,true,169c9da92f8c556cad9d775deabd15e597bce937,2026-06-30 10:19:00,fix: correct GitHub repo URL from ai-commit-statistic-skill to git-code-tracker
