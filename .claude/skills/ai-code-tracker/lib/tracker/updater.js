@@ -126,14 +126,15 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
     execFileSync("tar", ["xzf", tarballPath, "--strip-components=1", "-C", extractDir], { cwd: tmpDir });
 
     const skillDest = path.join(repoRoot, SKILL_DIR);
+    const srcSkillDir = path.join(extractDir, ".opencode", "skills", "ai-code-tracker");
     const srcLib = path.join(extractDir, "src");
 
     const libDest = path.join(skillDest, "lib");
     await fs.cp(srcLib, libDest, { recursive: true, force: true });
 
-    const scriptsSrc = path.join(extractDir, "scripts");
+    const scriptsSrc = path.join(srcSkillDir, "scripts");
     const scriptsDest = path.join(skillDest, "scripts");
-    const scriptsToCopy = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js"];
+    const scriptsToCopy = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js", "opencode-plugin.js"];
     for (const script of scriptsToCopy) {
       const srcFile = path.join(scriptsSrc, script);
       try {
@@ -143,11 +144,11 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
       }
     }
 
-    const commandsSrc = path.join(extractDir, "commands");
+    const commandsSrc = path.join(srcSkillDir, "commands");
     const commandsDest = path.join(skillDest, "commands");
     await fs.cp(commandsSrc, commandsDest, { recursive: true, force: true });
 
-    const skillMdSrc = path.join(extractDir, "SKILL.md");
+    const skillMdSrc = path.join(srcSkillDir, "SKILL.md");
     try {
       await fs.copyFile(skillMdSrc, path.join(skillDest, "SKILL.md"));
     } catch {}
