@@ -269,6 +269,51 @@ test("post-commit writes csv and consumes matched lines", async () => {
   assert(gitCalls.some((args) => args[0] === "commit"));
 });
 
+test("post-commit skips tracking when commit already includes CSV (auto_tracking_commit true)", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  const csvPath = path.join(repoRoot, ".ai-tracking", "cyd.csv");
+  await fs.writeFile(csvPath, "author,ai_lines,total_lines,is_ai_commit,commit_id,date,message\ncyd,1,2,true,oldhash,2026-05-05 10:00:00,Old\n", "utf8");
+
+  await fs.writeFile(pendingCommitPath(repoRoot), JSON.stringify({
+    ai_lines: 1,
+    total_lines: 2,
+    is_ai_commit: true,
+    matched_lines: {},
+  }), "utf8");
+
+  const gitCalls = [];
+  await runCommitStats("post-commit", {
+    repoRoot,
+    env: {},
+    git: async (args) => {
+      gitCalls.push(args);
+      const key = args.join(" ");
+      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
+      if (key === "rev-parse --verify HEAD") return "abc123";
+      if (key.startsWith("branch --all --contains")) return "main\n";
+      if (key === "rev-parse HEAD") return "abc123";
+      if (key === "log -1 --pretty=%an") return "cyd";
+      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-05T12:34:56+08:00";
+      if (key === "rev-parse HEAD~1:.ai-tracking/cyd.csv") return "parentblob";
+      if (key === "rev-parse HEAD:.ai-tracking/cyd.csv") return "currentblob";
+      return "";
+    },
+    gitRaw: async (args) => {
+      const key = args.join(" ");
+      if (key === "log -1 --pretty=%B") return "Implement thing\n\nBody\n";
+      return "";
+    },
+  });
+
+  // No new record appended, no tracking commit created
+  const csv = await fs.readFile(csvPath, "utf8");
+  const records = csv.trim().split("\n").slice(1);
+  assert.equal(records.length, 1);
+  assert.match(records[0], /^cyd,1,2,true,oldhash/);
+  assert(!gitCalls.some((args) => args[0] === "commit"), "should not create tracking commit");
+});
+
 test("post-commit copies AI lines from cherry-pick source", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });

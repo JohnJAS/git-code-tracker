@@ -194,47 +194,44 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const csvPath = authorCsvPath(repoRoot, author);
   const autoTracking = config.auto_tracking_commit !== false;
 
+  const csvRelPath = path.relative(repoRoot, csvPath);
+  const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
+  const currentBlob = await gitImpl(["rev-parse", `HEAD:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
+  const csvChangedInCommit = parentBlob !== null && parentBlob !== currentBlob;
+
+  const record = {
+    author,
+    ai_lines: aiLines,
+    total_lines: totalLines,
+    is_ai_commit: pendingCommit.is_ai_commit === true,
+    commit_id: commitId,
+    date,
+    message: messageSubject,
+  };
+
   if (autoTracking) {
-    await appendRecord(csvPath, {
-      author,
-      ai_lines: aiLines,
-      total_lines: totalLines,
-      is_ai_commit: pendingCommit.is_ai_commit === true,
-      commit_id: commitId,
-      date,
-      message: messageSubject,
-    });
+    if (csvChangedInCommit) {
+      await logInfo(repoRoot, "post-commit", "CSV already in commit, skipped tracking", { commitId: commitId.slice(0, 7) });
+    } else {
+      await appendRecord(csvPath, record);
 
-    await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
-      operation: "write tracking commit message",
-    });
-    await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
-    await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
+      await atomicWriteText(trackingMessagePath(repoRoot), trackingMessage(fullMessage, suffix), {
+        operation: "write tracking commit message",
+      });
+      await stageTrackingFiles({ repoRoot, gitImpl, csvPath });
+      await assertOnlyTrackingStaged(repoRoot, gitRawImpl);
 
-    await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
-      cwd: repoRoot,
-      env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
-    });
+      await gitImpl(["commit", "-F", ".ai-tracking/tracking-message.txt"], {
+        cwd: repoRoot,
+        env: { ...process.env, AI_CODE_TRACKER_SKIP: "1", AI_CODE_TRACKER_DEPTH: "1" },
+      });
+    }
 
     await fs.rm(pendingPath, { force: true });
     await fs.rm(trackingMessagePath(repoRoot), { force: true });
   } else {
-    // Only append when the commit itself didn't already include CSV changes
-    const csvRelPath = path.relative(repoRoot, csvPath);
-    const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
-    const currentBlob = await gitImpl(["rev-parse", `HEAD:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
-    const csvChangedInCommit = parentBlob !== null && parentBlob !== currentBlob;
-
     if (!csvChangedInCommit) {
-      await appendRecord(csvPath, {
-        author,
-        ai_lines: aiLines,
-        total_lines: totalLines,
-        is_ai_commit: pendingCommit.is_ai_commit === true,
-        commit_id: commitId,
-        date,
-        message: messageSubject,
-      });
+      await appendRecord(csvPath, record);
       await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV record appended", { commitId: commitId.slice(0, 7) });
     } else {
       await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV already in commit, skipped", { commitId: commitId.slice(0, 7) });

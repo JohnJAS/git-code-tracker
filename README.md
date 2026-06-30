@@ -167,6 +167,10 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --check
 | `tracking_commit_suffix` | string | `"[ai-tracking]"` | 追踪 commit message 的后缀标记。设为空串 `""` 表示不追加后缀，改为 amend CSV 进原始 commit |
 | `auto_tracking_commit` | boolean | `true` | 设为 `false` 时 CSV 仅写入工作树，不 stage 不 commit，由用户自行决定是否提交 |
 
+#### CSV 已包含在 commit 中时的行为
+
+无论 `auto_tracking_commit` 取何值，post-commit hook 都会检测当前 commit 是否已经改动了对应作者的 CSV 文件。如果已改动（例如你手动 `git add` 了 CSV），hook 会跳过，既不追加新记录也不创建追踪 commit，视为你自行处理了该 commit 的统计。
+
 #### `auto_tracking_commit: false` 行为
 
 此模式下 post-commit hook 仅在当前 commit **没有包含 CSV 变更**时写入一条记录到工作树。如果 commit 本身已经改了 CSV（例如你自己 stage 了 CSV），hook 会跳过，不会追加新行。记录留在工作树中由你自行决定何时 `git add` + `git commit`。
