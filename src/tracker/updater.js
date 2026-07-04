@@ -114,6 +114,42 @@ export async function backup(repoRoot) {
   await logInfo(repoRoot, "updater.backup", "backup created", { durationMs: timer.elapsedMs() });
 }
 
+export async function applyReleaseFiles(repoRoot, extractDir) {
+  const skillDest = path.join(repoRoot, SKILL_DIR);
+  const srcSkillDir = path.join(extractDir, ".opencode", "skills", "ai-code-tracker");
+
+  const scriptsSrc = path.join(srcSkillDir, "scripts");
+  const scriptsDest = path.join(skillDest, "scripts");
+  const scriptsToCopy = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js", "opencode-plugin.js", "bundle.js"];
+  for (const script of scriptsToCopy) {
+    try {
+      await fs.copyFile(path.join(scriptsSrc, script), path.join(scriptsDest, script));
+    } catch (error) {
+      await logInfo(repoRoot, "updater.upgrade", `script ${script} not found in release`, { error: error.message });
+    }
+  }
+
+  const commandsSrc = path.join(srcSkillDir, "commands");
+  const commandsDest = path.join(skillDest, "commands");
+  await fs.cp(commandsSrc, commandsDest, { recursive: true, force: true });
+
+  try {
+    await fs.copyFile(path.join(srcSkillDir, "SKILL.md"), path.join(skillDest, "SKILL.md"));
+  } catch {}
+
+  await fs.rm(path.join(skillDest, "lib"), { recursive: true, force: true });
+
+  const claudeSkillDest = path.join(repoRoot, CLAUDE_SKILL_DIR);
+  try {
+    await fs.stat(claudeSkillDest);
+    await fs.rm(path.join(claudeSkillDest, "lib"), { recursive: true, force: true });
+    await fs.cp(skillDest, claudeSkillDest, { recursive: true, force: true });
+    await logInfo(repoRoot, "updater.upgrade", "synced .claude skill dir");
+  } catch {
+    // .claude skill dir may not exist; skip silently
+  }
+}
+
 export async function downloadAndUpgrade(repoRoot, updateInfo) {
   const timer = startTimer();
 
@@ -137,41 +173,7 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
     execFileSync("tar", ["xzf", tarballPath, "--strip-components=1", "-C", extractDir], { cwd: tmpDir });
 
     const skillDest = path.join(repoRoot, SKILL_DIR);
-    const srcSkillDir = path.join(extractDir, ".opencode", "skills", "ai-code-tracker");
-    const srcLib = path.join(extractDir, "src");
-
-    const libDest = path.join(skillDest, "lib");
-    await fs.cp(srcLib, libDest, { recursive: true, force: true });
-
-    const scriptsSrc = path.join(srcSkillDir, "scripts");
-    const scriptsDest = path.join(skillDest, "scripts");
-    const scriptsToCopy = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js", "opencode-plugin.js"];
-    for (const script of scriptsToCopy) {
-      const srcFile = path.join(scriptsSrc, script);
-      try {
-        await fs.copyFile(srcFile, path.join(scriptsDest, script));
-      } catch (error) {
-        await logInfo(repoRoot, "updater.upgrade", `script ${script} not found in release`, { error: error.message });
-      }
-    }
-
-    const commandsSrc = path.join(srcSkillDir, "commands");
-    const commandsDest = path.join(skillDest, "commands");
-    await fs.cp(commandsSrc, commandsDest, { recursive: true, force: true });
-
-    const skillMdSrc = path.join(srcSkillDir, "SKILL.md");
-    try {
-      await fs.copyFile(skillMdSrc, path.join(skillDest, "SKILL.md"));
-    } catch {}
-
-    const claudeSkillDest = path.join(repoRoot, CLAUDE_SKILL_DIR);
-    try {
-      await fs.stat(claudeSkillDest);
-      await fs.cp(skillDest, claudeSkillDest, { recursive: true, force: true });
-      await logInfo(repoRoot, "updater.upgrade", "synced .claude skill dir");
-    } catch {
-      // .claude skill dir may not exist; skip silently
-    }
+    await applyReleaseFiles(repoRoot, extractDir);
 
     await logInfo(repoRoot, "updater.upgrade", "running install.js");
     const { execFile } = await import("node:child_process");
