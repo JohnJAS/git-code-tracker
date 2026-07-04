@@ -75,3 +75,4 @@ yooocen,166,166,true,4b32305b90a9b9ce48d0e8ae4e9e45d76f2f9a08,2026-07-04 09:54:0
 yooocen,29,29,true,aaa4300dd24ff43f9b4f2b2f9b90709ae45a2241,2026-07-04 10:01:51,"docs: address spec review feedback (lib/ cleanup on both sides, build example, symbol count)"
 yooocen,276,276,true,875ecc7dacfd59122d9ec04d3fc83b242f3e1efc,2026-07-04 10:18:07,docs: add bundle.js implementation plan
 yooocen,17,17,true,94c9fdfc7d4ddbe0935519ad0a545ea6af923064,2026-07-04 10:27:03,plan(bundle-js): replace unsafe wrapper smoke test with safe checks
+yooocen,2,505,true,f327aa20d976aba6c4eb7b8422509c7d5f0e7cb9,2026-07-04 10:30:08,build: add esbuild devDependency and build script
