@@ -71,3 +71,4 @@ yooocen,10,10,true,169c9da92f8c556cad9d775deabd15e597bce937,2026-06-30 10:19:00,
 yooocen,15,15,true,b05ea670bbde508700969a9d59f698128a4fed2f,2026-06-30 10:30:42,fix: correct updater paths for scripts/commands/SKILL.md in release tarball
 yooocen,78,78,true,90f7bc3e9216af940eab06004b3be4f62933d443,2026-06-30 10:56:25,fix: sync .claude skill dir during upgrade and rollback
 yooocen,3,3,true,8f999d4ce891cf0786bfc5d7f1dc61aa254c8ff3,2026-07-04 09:42:39,refactor: move claude-code-hook.js to dedicated src/claude-code/ folder
+yooocen,166,166,true,4b32305b90a9b9ce48d0e8ae4e9e45d76f2f9a08,2026-07-04 09:54:02,docs: add bundle.js refactoring design spec
