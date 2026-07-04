@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runAiCodeUpdate } from "../lib/cli/ai-update.js";
+import { runAiCodeUpdate } from "./bundle.js";
 
 runAiCodeUpdate().catch((error) => {
   console.error(`[ai-code-tracker] ${error.message}`);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runCommitStats } from "../lib/cli/commit-stats.js";
+import { runCommitStats } from "./bundle.js";
 
 runCommitStats(process.argv[2]).catch((error) => {
   console.error(`[ai-code-tracker] ${error.message}`);

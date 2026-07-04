@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runAiCodeStats } from "../lib/cli/ai-code-stats.js";
+import { runAiCodeStats } from "./bundle.js";
 
 runAiCodeStats().catch((error) => {
   console.error(`[ai-code-tracker] ${error.message}`);
