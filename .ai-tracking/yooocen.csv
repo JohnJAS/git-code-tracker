@@ -78,3 +78,4 @@ yooocen,17,17,true,94c9fdfc7d4ddbe0935519ad0a545ea6af923064,2026-07-04 10:27:03,
 yooocen,2,505,true,f327aa20d976aba6c4eb7b8422509c7d5f0e7cb9,2026-07-04 10:30:08,build: add esbuild devDependency and build script
 yooocen,5053,5053,true,7721895a8604cd17083c3b19d9e7cc1ce89d9d35,2026-07-04 10:30:56,"build: add barrel, esbuild build script, and bundle.js (TDD)"
 yooocen,141,141,true,02dff6bf47a543269d520382bd2861dac310c54f,2026-07-04 10:32:31,refactor(updater): extract applyReleaseFiles helper (TDD)
+yooocen,11,11,true,5f2584ff3014c4e9f0feb6d831749ea0ad2984e7,2026-07-04 10:34:23,refactor(wrappers): import from ./bundle.js instead of ../lib (11 files)
