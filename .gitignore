@@ -10,3 +10,4 @@
 .ai-tracking/available-update.json
 .ai-tracking/backup-pre-update/
 .ai-tracking/config.json
+node_modules/
