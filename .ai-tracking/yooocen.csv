@@ -77,3 +77,4 @@ yooocen,276,276,true,875ecc7dacfd59122d9ec04d3fc83b242f3e1efc,2026-07-04 10:18:0
 yooocen,17,17,true,94c9fdfc7d4ddbe0935519ad0a545ea6af923064,2026-07-04 10:27:03,plan(bundle-js): replace unsafe wrapper smoke test with safe checks
 yooocen,2,505,true,f327aa20d976aba6c4eb7b8422509c7d5f0e7cb9,2026-07-04 10:30:08,build: add esbuild devDependency and build script
 yooocen,5053,5053,true,7721895a8604cd17083c3b19d9e7cc1ce89d9d35,2026-07-04 10:30:56,"build: add barrel, esbuild build script, and bundle.js (TDD)"
+yooocen,141,141,true,02dff6bf47a543269d520382bd2861dac310c54f,2026-07-04 10:32:31,refactor(updater): extract applyReleaseFiles helper (TDD)
