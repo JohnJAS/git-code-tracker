@@ -93,16 +93,7 @@ const targets = [
   path.join(root, ".claude", "skills", "ai-code-tracker", "scripts", "bundle.js"),
 ];
 
-await esbuild.build({
-  entryPoints: [entry],
-  bundle: true,
-  format: "esm",
-  platform: "node",
-  target: "node20",
-  write: false,
-});
-
-// 写入两个目标
+// 单次 build，多次写出
 const result = await esbuild.build({
   entryPoints: [entry],
   bundle: true,
@@ -112,13 +103,14 @@ const result = await esbuild.build({
   write: false,
 });
 
+const code = result.outputFiles[0].text;
 for (const out of targets) {
   await fs.mkdir(path.dirname(out), { recursive: true });
-  await fs.writeFile(out, result.outputFiles[0].text);
+  await fs.writeFile(out, code);
 }
 ```
 
-（最终实现可单次 build、多次写出；上面示意用一次 esbuild.build 产出文本再写两份，避免重复打包。）
+（单次 `esbuild.build` 产出文本，再写两份目标，避免重复打包。）
 
 调用：`node scripts/build.js`。开发流程：改 `src/` → `npm run build` → 提交（替代当前手动 `cp -r src/ lib/`）。
 
@@ -154,7 +146,7 @@ export { AiCodeTrackerPlugin, recordEditedFile } from "./bundle.js";
 
 ### 5. `src/tracker/updater.js` 改动（升级流程）
 
-当前 `downloadAndUpgrade`（updater.js:117-179）：
+当前 `downloadAndUpgrade`（updater.js:117-203）：
 
 1. 下载 release tarball → 解压（`--strip-components=1`）
 2. `extractDir/src` → `skillDest/lib`（updater.js:141-144）← **删除这段**
@@ -167,7 +159,35 @@ export { AiCodeTrackerPlugin, recordEditedFile } from "./bundle.js";
 const scriptsToCopy = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js", "opencode-plugin.js", "bundle.js"];
 ```
 
-release tarball（= 仓库内容）里 `bundle.js` 已提交在 `.opencode/skills/ai-code-tracker/scripts/bundle.js`，经 `scriptsToCopy` 自动流转到目标项目；再由第 170 行 `fs.cp(skillDest, claudeSkillDest)` 同步到 `.claude`。
+release tarball（= 仓库内容）里 `bundle.js` 已提交在 `.opencode/skills/ai-code-tracker/scripts/bundle.js`，经 `scriptsToCopy` 自动流转到目标项目。
+
+**新增：清理旧 `lib/` 残留。** 上述改动只移除了"把 src 复制到 lib"的步骤，但**不会删除**目标 skill 目录里旧版本遗留的 `lib/` 树（16 个文件）。残留 `lib/` 不被引用、无功能影响，但违背"减文件数"目标（升级后会是 14 + 16 = 30 文件）。
+
+注意 `fs.cp(skillDest, claudeSkillDest, { recursive: true, force: true })`（第 170 行）**只覆盖同名路径，不会删除目标侧多余的文件**。因此仅删 `.opencode` 侧的 `lib/` 不足以清除 `.claude` 侧的旧 `lib/`。必须在同步之前分别显式删除两侧 `lib/`。
+
+改动后 `downloadAndUpgrade` 的步骤序列：
+
+1. 下载 release tarball → 解压（`--strip-components=1`）
+2. **删除** `skillDest/lib`（`.opencode` 侧旧 `lib/`）
+3. 从 release 的 `scripts/` 拷 wrapper（含 `bundle.js`）到 `skillDest/scripts/`
+4. 拷 `commands/`、`SKILL.md`
+5. **删除** `claudeSkillDest/lib`（`.claude` 侧旧 `lib/`，若存在）— 必须显式删，`fs.cp` 不会清理
+6. `fs.cp(skillDest, claudeSkillDest)` 同步到 `.claude`
+7. 跑 `install.js`
+
+对应新增代码：
+
+```js
+// 第 2 步：删 .opencode 侧 lib/
+const libDest = path.join(skillDest, "lib");
+await fs.rm(libDest, { recursive: true, force: true });
+
+// 第 5 步：删 .claude 侧 lib/（在 fs.cp 同步之前）
+const claudeLibDest = path.join(claudeSkillDest, "lib");
+await fs.rm(claudeLibDest, { recursive: true, force: true });
+```
+
+`fs.rm` 的 `force: true` 保证新装项目或 `.claude` 不存在时不报错。两处删除均在 `fs.cp(skillDest, claudeSkillDest)` 之前完成。
 
 ### 6. `package.json` 改动
 
@@ -187,7 +207,7 @@ release tarball（= 仓库内容）里 `bundle.js` 已提交在 `.opencode/skill
 | `.claude/skills/ai-code-tracker/scripts/*.js`（6 个 wrapper） | 修改 | 同上 |
 | `.opencode/skills/ai-code-tracker/lib/` | 删除 | 整树 |
 | `.claude/skills/ai-code-tracker/lib/` | 删除 | 整树 |
-| `src/tracker/updater.js` | 修改 | 删 `src`→`lib` 复制段；`scriptsToCopy` 加 `bundle.js` |
+| `src/tracker/updater.js` | 修改 | 删 `src`→`lib` 复制段；`scriptsToCopy` 加 `bundle.js`；新增 `fs.rm(lib)` 清理旧残留 |
 | `src/tracker/updater.js`（部署副本） | 修改 | 同步到 `.opencode`/`.claude` 的 bundle 内 |
 
 注：`updater.js` 本身是 `src/` 源文件，改动后会随 `npm run build` 打进 `bundle.js`，因此部署副本随 bundle 一起更新，无需单独同步 `lib/tracker/updater.js`。
@@ -213,11 +233,11 @@ release tarball（= 仓库内容）里 `bundle.js` 已提交在 `.opencode/skill
 ### 10. 测试
 
 - 现有测试（`test/`）从 `../src/...` 导入，**不依赖 bundle**，继续直接测源码，无需改
-- 新增 `test/bundle.test.js`：导入构建产物 `bundle.js`，断言 6 个符号均可解析（`runCommitStats`、`runAiCodeStats`、`runAiCodeUpdate`、`runInstall`、`runClaudeCodeHook`、`AiCodeTrackerPlugin`、`recordEditedFile`），保证 bundle 与 barrel 一致、不漏导出
+- 新增 `test/bundle.test.js`：导入构建产物 `bundle.js`，断言 7 个符号均可解析（`runCommitStats`、`runAiCodeStats`、`runAiCodeUpdate`、`runInstall`、`runClaudeCodeHook`、`AiCodeTrackerPlugin`、`recordEditedFile`），保证 bundle 与 barrel 一致、不漏导出
 - 构建脚本本身不单独测（产物由 bundle.test.js 间接验证）
 
 ## 风险
 
 - **esbuild 依赖引入**：项目从零依赖变为有一个 devDependency。esbuild 仅 dev 时使用，不进入运行时；release tarball 含预构建 `bundle.js`，目标项目无需安装 esbuild。可接受。
 - **bundle 与 src 漂移**：开发者改 `src/` 后忘记 `npm run build` 会导致提交的 `bundle.js` 过期。缓解：`bundle.test.js` 验证符号存在；可在 pre-commit hook 加 `npm run build`（本设计不强制，列为可选）。
-- **ESM 默认导出**：`opencode/ai-code-tracker.js` 有 `export default AiCodeTrackerPlugin`。barrel 只显式重导出命名导出，默认导出不经 wrapper 使用，esbuild 保留即可，不影响。
+- **ESM 默认导出**：`opencode/ai-code-tracker.js` 有 `export default AiCodeTrackerPlugin`。barrel 只显式重导出命名导出，默认导出**不**经 barrel 转出，因此 `bundle.js` 不含默认导出（esbuild 按可达性 tree-shake）。当前所有 wrapper 只用命名导入，无影响；未来若有消费者需要默认导出，须直接导入 `src/opencode/ai-code-tracker.js` 或在 barrel 中显式 `export { default } from "./opencode/ai-code-tracker.js"`。
