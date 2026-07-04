@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { runClaudeCodeHook } from "../src/cli/claude-code-hook.js";
+import { runClaudeCodeHook } from "../src/claude-code/claude-code-hook.js";
 import { loadPendingLines } from "../src/tracker/lineStore.js";
 import { snapshotDir } from "../src/tracker/paths.js";
 
