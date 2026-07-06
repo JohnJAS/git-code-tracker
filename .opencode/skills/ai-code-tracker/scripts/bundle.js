@@ -2302,6 +2302,7 @@ init_logger();
 var beforeSnapshots = /* @__PURE__ */ new Map();
 var originalSnapshots = /* @__PURE__ */ new Map();
 var pendingFileEditedTimers = /* @__PURE__ */ new Map();
+var BASH_FALLBACK_MS = 3e4;
 var bashBaselineHashes = null;
 var bashBaselineRepoRoot = null;
 var bashFallbackTimer = null;
@@ -2428,8 +2429,7 @@ async function handleBashBefore({ cwd, tool, args }) {
         await recordBashChanges(bashBaselineHashes, afterHashes, bashBaselineRepoRoot);
       } catch {
       }
-      bashBaselineHashes = null;
-    }, 3e3);
+    }, BASH_FALLBACK_MS);
     await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(currentHashes).length });
   } catch (error) {
     await logInfo(cwd, "tool.execute.before", `bash-pre error: ${error.message}`);

@@ -10,7 +10,7 @@ import { checkVersion } from "../tracker/updater.js";
 const beforeSnapshots = new Map();
 const originalSnapshots = new Map();
 const pendingFileEditedTimers = new Map();
-const BASH_FALLBACK_MS = 3000;
+const BASH_FALLBACK_MS = 30000;
 
 let bashBaselineHashes = null;
 let bashBaselineRepoRoot = null;
@@ -163,8 +163,7 @@ async function handleBashBefore({ cwd, tool, args }) {
         const afterHashes = await captureGitFileHashes(bashBaselineRepoRoot);
         await recordBashChanges(bashBaselineHashes, afterHashes, bashBaselineRepoRoot);
       } catch {}
-      bashBaselineHashes = null;
-    }, 3000);
+    }, BASH_FALLBACK_MS);
 
     await logInfo(repoRoot, "tool.execute.before", "captured bash file hashes", { files: Object.keys(currentHashes).length });
   } catch (error) {
