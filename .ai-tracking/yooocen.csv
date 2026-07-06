@@ -81,3 +81,4 @@ yooocen,141,141,true,02dff6bf47a543269d520382bd2861dac310c54f,2026-07-04 10:32:3
 yooocen,11,11,true,5f2584ff3014c4e9f0feb6d831749ea0ad2984e7,2026-07-04 10:34:23,refactor(wrappers): import from ./bundle.js instead of ../lib (11 files)
 yooocen,0,0,true,ea43178b8ecc7e6b46be2e2816b778be5e428361,2026-07-04 10:35:02,chore: remove obsolete lib/ trees (replaced by bundle.js)
 yooocen,22,24,true,b0690f897b4ecb83b628d3788376047d8651c97c,2026-07-06 11:48:45,feat: add package script to zip skills dirs as release artifact
+yooocen,6,6,true,f9868aa187141457b3bb198bdbf98dcf7c55e61a,2026-07-06 11:52:48,fix(tracker): prevent bash fallback from stealing baseline for long commands
