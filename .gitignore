@@ -11,3 +11,5 @@
 .ai-tracking/backup-pre-update/
 .ai-tracking/config.json
 node_modules/
+*.zip
+output/
