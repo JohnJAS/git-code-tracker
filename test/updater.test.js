@@ -43,11 +43,11 @@ async function fakeRepo() {
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
   await fs.writeFile(configPath(repoRoot), JSON.stringify({
     enabled: true,
-    installed_version: "0.1.0",
-    source_repo: "https://github.com/yooocen/git-code-tracker",
-    check_updates: false,
-    update_check_interval_hours: 24,
-    last_update_check: null,
+    installedVersion: "0.1.0",
+    sourceRepo: "https://github.com/yooocen/git-code-tracker",
+    checkUpdates: false,
+    updateCheckIntervalHours: 24,
+    lastUpdateCheck: null,
   }), "utf8");
   return repoRoot;
 }
@@ -56,11 +56,11 @@ function fakeConfig(repoRoot, overrides = {}) {
   return fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true }).then(() =>
     fs.writeFile(configPath(repoRoot), JSON.stringify({
       enabled: true,
-      installed_version: "0.1.0",
-      source_repo: "https://github.com/yooocen/git-code-tracker",
-      check_updates: false,
-      update_check_interval_hours: 24,
-      last_update_check: null,
+      installedVersion: "0.1.0",
+      sourceRepo: "https://github.com/yooocen/git-code-tracker",
+      checkUpdates: false,
+      updateCheckIntervalHours: 24,
+      lastUpdateCheck: null,
       ...overrides,
     }), "utf8")
   );
@@ -73,7 +73,7 @@ test("parseTag strips v prefix", () => {
   assert.equal(parseTag(null), "");
 });
 
-test("checkVersion returns null when check_updates is false", async () => {
+test("checkVersion returns null when checkUpdates is false", async () => {
   const repoRoot = await fakeRepo();
   const result = await checkVersion(repoRoot);
   assert.equal(result, null);
@@ -81,7 +81,7 @@ test("checkVersion returns null when check_updates is false", async () => {
 
 test("checkVersion detects new version via GitHub API", async () => {
   const repoRoot = await fakeRepo();
-  await fakeConfig(repoRoot, { check_updates: true });
+  await fakeConfig(repoRoot, { checkUpdates: true });
   mockGitHubApi({ tag_name: "v0.2.0", html_url: "https://github.com/yooocen/git-code-tracker/releases/tag/v0.2.0", tarball_url: "https://api.github.com/repos/yooocen/git-code-tracker/tarball/v0.2.0", body: "Bug fixes" });
   try {
     const result = await checkVersion(repoRoot);
@@ -96,7 +96,7 @@ test("checkVersion detects new version via GitHub API", async () => {
 
 test("checkVersion returns null when GitHub API fails", async () => {
   const repoRoot = await fakeRepo();
-  await fakeConfig(repoRoot, { check_updates: true });
+  await fakeConfig(repoRoot, { checkUpdates: true });
   mockGitHubApiError(403);
   try {
     const result = await checkVersion(repoRoot);
@@ -108,7 +108,7 @@ test("checkVersion returns null when GitHub API fails", async () => {
 
 test("checkVersion returns null on network error", async () => {
   const repoRoot = await fakeRepo();
-  await fakeConfig(repoRoot, { check_updates: true });
+  await fakeConfig(repoRoot, { checkUpdates: true });
   mockGitHubApiNetworkError();
   try {
     const result = await checkVersion(repoRoot);
@@ -118,10 +118,10 @@ test("checkVersion returns null on network error", async () => {
   }
 });
 
-test("checkVersion respects update_check_interval_hours and returns cached", async () => {
+test("checkVersion respects updateCheckIntervalHours and returns cached", async () => {
   const repoRoot = await fakeRepo();
   const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-  await fakeConfig(repoRoot, { check_updates: true, last_update_check: oneHourAgo, update_check_interval_hours: 24 });
+  await fakeConfig(repoRoot, { checkUpdates: true, lastUpdateCheck: oneHourAgo, updateCheckIntervalHours: 24 });
 
   const cacheDir = path.join(repoRoot, ".ai-tracking");
   await fs.mkdir(cacheDir, { recursive: true });

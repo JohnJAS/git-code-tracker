@@ -34,7 +34,7 @@ export async function recordEditedFile({ cwd = process.cwd(), filePath, before, 
   const isNewFile = before === undefined || before === null || before === "";
   const added = isNewFile ? String(after).split(/\r?\n/) : addedLines(before, after);
   await appendPendingLines(repoRoot, relative, added, {
-    countBlankLines: config.count_blank_lines,
+    countBlankLines: config.countBlankLines,
     dedupeExisting: true,
     replace,
   });
@@ -203,7 +203,7 @@ async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
 
     const absolutePath = path.join(repoRoot, file);
     const content = await safeRead(absolutePath);
-    const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+    const lines = content.split(/\r?\n/).filter((l) => config.countBlankLines || l.trim() !== "");
 
     const existing = pending[file];
     let shouldRecord = false;
@@ -220,7 +220,7 @@ async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
 
     if (shouldRecord) {
       await appendPendingLines(repoRoot, file, lines, {
-        countBlankLines: config.count_blank_lines,
+        countBlankLines: config.countBlankLines,
         dedupeExisting: true,
         replace: true,
       });

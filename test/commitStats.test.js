@@ -269,7 +269,7 @@ test("post-commit writes csv and consumes matched lines", async () => {
   assert(gitCalls.some((args) => args[0] === "commit"));
 });
 
-test("post-commit skips tracking when commit already includes CSV (auto_tracking_commit true)", async () => {
+test("post-commit skips tracking when commit already includes CSV (autoTrackingCommit true)", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
   const csvPath = path.join(repoRoot, ".ai-tracking", "cyd.csv");
@@ -443,9 +443,9 @@ test("post-commit skips tracking commit with custom suffix from config", async (
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, ".ai-tracking", "config.json"), JSON.stringify({
     enabled: true,
-    count_blank_lines: false,
-    tracking_commit_suffix: "[custom-suffix]",
-    auto_tracking_commit: true,
+    countBlankLines: false,
+    trackingCommitSuffix: "[custom-suffix]",
+    autoTrackingCommit: true,
   }), "utf8");
 
   const result = await runCommitStats("post-commit", {

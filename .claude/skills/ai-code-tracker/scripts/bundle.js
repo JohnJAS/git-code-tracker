@@ -848,7 +848,7 @@ async function loadConfig(repoRoot) {
       const { logError: logError2 } = await Promise.resolve().then(() => (init_logger(), logger_exports));
       await logError2(repoRoot, "loadConfig", "failed to read config, using defaults", { error: error.message });
     }
-    return { enabled: true, count_blank_lines: false, tracking_commit_suffix: "[ai-tracking]", auto_tracking_commit: true };
+    return { enabled: true, countBlankLines: false, trackingCommitSuffix: "[ai-tracking]", autoTrackingCommit: true };
   }
 }
 var DEFAULT_IGNORE = [
@@ -948,7 +948,7 @@ async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
   const pendingCommit = buildPendingCommit({
     pendingLines,
     addedLines: addedLines2,
-    countBlankLines: config.count_blank_lines,
+    countBlankLines: config.countBlankLines,
     renamedFiles,
     missingPendingFiles: await missingPendingFiles(repoRoot, pendingLines)
   });
@@ -988,7 +988,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
   const subject = fullMessage.split(/\r?\n/)[0] || "";
   const config = await loadConfig(repoRoot);
-  const suffix = config.tracking_commit_suffix || "[ai-tracking]";
+  const suffix = config.trackingCommitSuffix || "[ai-tracking]";
   if (fullMessage.includes(suffix)) {
     await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
     return { skipped: "tracking-commit" };
@@ -1028,7 +1028,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
     }
   }
   const csvPath = authorCsvPath(repoRoot, author);
-  const autoTracking = config.auto_tracking_commit !== false;
+  const autoTracking = config.autoTrackingCommit !== false;
   const csvRelPath = path5.relative(repoRoot, csvPath);
   const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
   const currentBlob = await gitImpl(["rev-parse", `HEAD:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
@@ -1062,9 +1062,9 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   } else {
     if (!csvChangedInCommit) {
       await appendRecord(csvPath, record);
-      await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV record appended", { commitId: commitId.slice(0, 7) });
+      await logInfo(repoRoot, "post-commit", "autoTrackingCommit disabled: CSV record appended", { commitId: commitId.slice(0, 7) });
     } else {
-      await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV already in commit, skipped", { commitId: commitId.slice(0, 7) });
+      await logInfo(repoRoot, "post-commit", "autoTrackingCommit disabled: CSV already in commit, skipped", { commitId: commitId.slice(0, 7) });
     }
     await fs6.rm(pendingPath, { force: true });
   }
@@ -1379,11 +1379,11 @@ function parseTag(tag) {
 }
 async function checkVersion(repoRoot) {
   const config = await loadConfig(repoRoot);
-  if (!config.check_updates) {
+  if (!config.checkUpdates) {
     return null;
   }
-  const intervalHours = config.update_check_interval_hours ?? 24;
-  const lastCheck = config.last_update_check;
+  const intervalHours = config.updateCheckIntervalHours ?? 24;
+  const lastCheck = config.lastUpdateCheck;
   if (lastCheck) {
     const hoursSinceLastCheck = (Date.now() - new Date(lastCheck).getTime()) / 36e5;
     if (hoursSinceLastCheck < intervalHours) {
@@ -1393,7 +1393,7 @@ async function checkVersion(repoRoot) {
       }
     }
   }
-  const localVersion = config.installed_version || "0.0.0";
+  const localVersion = config.installedVersion || "0.0.0";
   let data;
   try {
     const res = await fetch(GITHUB_API);
@@ -1423,7 +1423,7 @@ async function checkVersion(repoRoot) {
   };
   await saveAvailableUpdate(repoRoot, updateInfo);
   await logInfo(repoRoot, "updater.checkVersion", "update available", { local: localVersion, remote: remoteVersion });
-  config.last_update_check = (/* @__PURE__ */ new Date()).toISOString();
+  config.lastUpdateCheck = (/* @__PURE__ */ new Date()).toISOString();
   await atomicWriteJson(configPath(repoRoot), config);
   return updateInfo;
 }
@@ -1518,8 +1518,8 @@ async function downloadAndUpgrade(repoRoot, updateInfo) {
     const execFileAsync4 = promisify4(execFile4);
     await execFileAsync4("node", ["--experimental-vm-modules", path6.join(skillDest, "scripts", "install.js")], { cwd: repoRoot });
     const cfg = JSON.parse(await fs7.readFile(configPath(repoRoot), "utf8"));
-    cfg.installed_version = updateInfo.remote_version;
-    cfg.last_update_check = (/* @__PURE__ */ new Date()).toISOString();
+    cfg.installedVersion = updateInfo.remote_version;
+    cfg.lastUpdateCheck = (/* @__PURE__ */ new Date()).toISOString();
     const { atomicWriteJson: atomicWriteJson2 } = await Promise.resolve().then(() => (init_lock(), lock_exports));
     await atomicWriteJson2(configPath(repoRoot), cfg);
     await fs7.rm(tmpDir, { recursive: true, force: true });
@@ -2082,14 +2082,14 @@ function expectedPluginContent() {
 function expectedConfigObject(version) {
   return {
     enabled: true,
-    count_blank_lines: false,
-    tracking_commit_suffix: "[ai-tracking]",
-    auto_tracking_commit: true,
-    installed_version: version || "0.1.0",
-    source_repo: "https://github.com/yooocen/git-code-tracker",
-    check_updates: true,
-    update_check_interval_hours: 24,
-    last_update_check: null
+    countBlankLines: false,
+    trackingCommitSuffix: "[ai-tracking]",
+    autoTrackingCommit: true,
+    installedVersion: version || "0.1.0",
+    sourceRepo: "https://github.com/yooocen/git-code-tracker",
+    checkUpdates: true,
+    updateCheckIntervalHours: 24,
+    lastUpdateCheck: null
   };
 }
 var OPENCODE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "ai-stats.md", "ai-uninstall.md", "ai-update.md"];
@@ -2377,7 +2377,7 @@ async function handlePost({ repoRoot, absolutePath, relative, toolUseId, config 
     const added = isNewFile ? String(after).split(/\r?\n/) : addedLines(original.content, after);
     if (added.length > 0) {
       await appendPendingLines(repoRoot, relative, added, {
-        countBlankLines: config.count_blank_lines,
+        countBlankLines: config.countBlankLines,
         dedupeExisting: true,
         replace: true
       });
@@ -2421,9 +2421,9 @@ async function handleBashPost({ repoRoot, toolUseId, config }) {
       if (prevHashes[file] === hash) continue;
       const absolutePath = path8.join(repoRoot, file);
       const content = await safeRead(absolutePath);
-      const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+      const lines = content.split(/\r?\n/).filter((l) => config.countBlankLines || l.trim() !== "");
       if (lines.length > 0) {
-        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
+        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.countBlankLines, dedupeExisting: true, replace: true });
         trackedCount++;
       }
     }
@@ -2533,7 +2533,7 @@ async function recordEditedFile({ cwd = process.cwd(), filePath, before, after =
   const isNewFile = before === void 0 || before === null || before === "";
   const added = isNewFile ? String(after).split(/\r?\n/) : addedLines(before, after);
   await appendPendingLines(repoRoot, relative, added, {
-    countBlankLines: config.count_blank_lines,
+    countBlankLines: config.countBlankLines,
     dedupeExisting: true,
     replace
   });
@@ -2671,7 +2671,7 @@ async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
     if (shouldIgnore(file)) continue;
     const absolutePath = path9.join(repoRoot, file);
     const content = await safeRead(absolutePath);
-    const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+    const lines = content.split(/\r?\n/).filter((l) => config.countBlankLines || l.trim() !== "");
     const existing = pending[file];
     let shouldRecord = false;
     if (existing) {
@@ -2683,7 +2683,7 @@ async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
     }
     if (shouldRecord) {
       await appendPendingLines(repoRoot, file, lines, {
-        countBlankLines: config.count_blank_lines,
+        countBlankLines: config.countBlankLines,
         dedupeExisting: true,
         replace: true
       });

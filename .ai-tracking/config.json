@@ -1,9 +1,9 @@
 {
   "enabled": true,
-  "count_blank_lines": false,
-  "tracking_commit_suffix": "[custom]",
-  "auto_tracking_commit": true,
-  "installed_version": "0.0.0",
-  "check_updates": true,
-  "last_update_check": "2026-06-30T02:28:12.872Z"
+  "countBlankLines": false,
+  "trackingCommitSuffix": "[custom]",
+  "autoTrackingCommit": true,
+  "installedVersion": "0.0.0",
+  "checkUpdates": true,
+  "lastUpdateCheck": "2026-07-07T03:57:32.541Z"
 }

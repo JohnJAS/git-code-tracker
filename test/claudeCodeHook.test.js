@@ -17,7 +17,7 @@ async function fakeRepo() {
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
   await fs.writeFile(
     path.join(repoRoot, ".ai-tracking", "config.json"),
-    JSON.stringify({ enabled: true, ignore: [], count_blank_lines: false }),
+    JSON.stringify({ enabled: true, ignore: [], countBlankLines: false }),
     "utf8",
   );
   return repoRoot;
@@ -105,7 +105,7 @@ test("hook skips ignored file paths", async () => {
   const repoRoot = await fakeRepo();
   await fs.writeFile(
     path.join(repoRoot, ".ai-tracking", "config.json"),
-    JSON.stringify({ enabled: true, ignore: ["node_modules/**"], count_blank_lines: false }),
+    JSON.stringify({ enabled: true, ignore: ["node_modules/**"], countBlankLines: false }),
     "utf8",
   );
   await fs.mkdir(path.join(repoRoot, "node_modules"), { recursive: true });
@@ -327,7 +327,7 @@ test("Bash post-hook skips ignored files", async () => {
   const repoRoot = await fakeRepo();
   await fs.writeFile(
     path.join(repoRoot, ".ai-tracking", "config.json"),
-    JSON.stringify({ enabled: true, ignore: ["dist/**"], count_blank_lines: false }),
+    JSON.stringify({ enabled: true, ignore: ["dist/**"], countBlankLines: false }),
     "utf8",
   );
   await fs.mkdir(path.join(repoRoot, "dist"), { recursive: true });

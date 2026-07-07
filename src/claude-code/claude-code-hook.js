@@ -108,7 +108,7 @@ async function handlePost({ repoRoot, absolutePath, relative, toolUseId, config 
 
     if (added.length > 0) {
       await appendPendingLines(repoRoot, relative, added, {
-        countBlankLines: config.count_blank_lines,
+        countBlankLines: config.countBlankLines,
         dedupeExisting: true,
         replace: true,
       });
@@ -162,9 +162,9 @@ async function handleBashPost({ repoRoot, toolUseId, config }) {
 
       const absolutePath = path.join(repoRoot, file);
       const content = await safeRead(absolutePath);
-      const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
+      const lines = content.split(/\r?\n/).filter((l) => config.countBlankLines || l.trim() !== "");
       if (lines.length > 0) {
-        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
+        await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.countBlankLines, dedupeExisting: true, replace: true });
         trackedCount++;
       }
     }

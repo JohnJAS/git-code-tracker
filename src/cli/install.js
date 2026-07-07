@@ -483,14 +483,14 @@ function expectedPluginContent() {
 function expectedConfigObject(version) {
   return {
     enabled: true,
-    count_blank_lines: false,
-    tracking_commit_suffix: "[ai-tracking]",
-    auto_tracking_commit: true,
-    installed_version: version || "0.1.0",
-    source_repo: "https://github.com/yooocen/git-code-tracker",
-    check_updates: true,
-    update_check_interval_hours: 24,
-    last_update_check: null,
+    countBlankLines: false,
+    trackingCommitSuffix: "[ai-tracking]",
+    autoTrackingCommit: true,
+    installedVersion: version || "0.1.0",
+    sourceRepo: "https://github.com/yooocen/git-code-tracker",
+    checkUpdates: true,
+    updateCheckIntervalHours: 24,
+    lastUpdateCheck: null,
   };
 }
 

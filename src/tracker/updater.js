@@ -20,10 +20,10 @@ export function parseTag(tag) {
 
 export async function checkVersion(repoRoot) {
   const config = await loadConfig(repoRoot);
-  if (!config.check_updates) { return null; }
+  if (!config.checkUpdates) { return null; }
 
-  const intervalHours = config.update_check_interval_hours ?? 24;
-  const lastCheck = config.last_update_check;
+  const intervalHours = config.updateCheckIntervalHours ?? 24;
+  const lastCheck = config.lastUpdateCheck;
   if (lastCheck) {
     const hoursSinceLastCheck = (Date.now() - new Date(lastCheck).getTime()) / 3600000;
     if (hoursSinceLastCheck < intervalHours) {
@@ -32,7 +32,7 @@ export async function checkVersion(repoRoot) {
     }
   }
 
-  const localVersion = config.installed_version || "0.0.0";
+  const localVersion = config.installedVersion || "0.0.0";
 
   let data;
   try {
@@ -67,7 +67,7 @@ export async function checkVersion(repoRoot) {
   await saveAvailableUpdate(repoRoot, updateInfo);
   await logInfo(repoRoot, "updater.checkVersion", "update available", { local: localVersion, remote: remoteVersion });
 
-  config.last_update_check = new Date().toISOString();
+  config.lastUpdateCheck = new Date().toISOString();
   await atomicWriteJson(configPath(repoRoot), config);
 
   return updateInfo;
@@ -182,8 +182,8 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
     await execFileAsync("node", ["--experimental-vm-modules", path.join(skillDest, "scripts", "install.js")], { cwd: repoRoot });
 
     const cfg = JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
-    cfg.installed_version = updateInfo.remote_version;
-    cfg.last_update_check = new Date().toISOString();
+    cfg.installedVersion = updateInfo.remote_version;
+    cfg.lastUpdateCheck = new Date().toISOString();
     const { atomicWriteJson } = await import("./lock.js");
     await atomicWriteJson(configPath(repoRoot), cfg);
 

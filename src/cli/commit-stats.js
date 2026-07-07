@@ -100,7 +100,7 @@ async function runPreCommit({ repoRoot, gitRawImpl, env, processTreeReader }) {
   const pendingCommit = buildPendingCommit({
     pendingLines,
     addedLines,
-    countBlankLines: config.count_blank_lines,
+    countBlankLines: config.countBlankLines,
     renamedFiles,
     missingPendingFiles: await missingPendingFiles(repoRoot, pendingLines),
   });
@@ -146,7 +146,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const fullMessage = await gitRawImpl(["log", "-1", "--pretty=%B"], { cwd: repoRoot });
   const subject = fullMessage.split(/\r?\n/)[0] || "";
   const config = await loadConfig(repoRoot);
-  const suffix = config.tracking_commit_suffix || "[ai-tracking]";
+  const suffix = config.trackingCommitSuffix || "[ai-tracking]";
   if (fullMessage.includes(suffix)) {
     await logInfo(repoRoot, "post-commit", "skipped: tracking commit", { subject, durationMs: timer.elapsedMs() });
     return { skipped: "tracking-commit" };
@@ -192,7 +192,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   }
 
   const csvPath = authorCsvPath(repoRoot, author);
-  const autoTracking = config.auto_tracking_commit !== false;
+  const autoTracking = config.autoTrackingCommit !== false;
 
   const csvRelPath = path.relative(repoRoot, csvPath);
   const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
@@ -232,9 +232,9 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   } else {
     if (!csvChangedInCommit) {
       await appendRecord(csvPath, record);
-      await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV record appended", { commitId: commitId.slice(0, 7) });
+      await logInfo(repoRoot, "post-commit", "autoTrackingCommit disabled: CSV record appended", { commitId: commitId.slice(0, 7) });
     } else {
-      await logInfo(repoRoot, "post-commit", "auto_tracking_commit disabled: CSV already in commit, skipped", { commitId: commitId.slice(0, 7) });
+      await logInfo(repoRoot, "post-commit", "autoTrackingCommit disabled: CSV already in commit, skipped", { commitId: commitId.slice(0, 7) });
     }
 
     await fs.rm(pendingPath, { force: true });

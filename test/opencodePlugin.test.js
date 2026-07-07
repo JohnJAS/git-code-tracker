@@ -285,7 +285,7 @@ test("Bash after skips ignored files", async () => {
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
   await fs.writeFile(
     path.join(repoRoot, ".ai-tracking", "config.json"),
-    JSON.stringify({ enabled: true, ignore: ["dist/**"], count_blank_lines: false }),
+    JSON.stringify({ enabled: true, ignore: ["dist/**"], countBlankLines: false }),
     "utf8",
   );
 

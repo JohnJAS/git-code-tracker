@@ -83,7 +83,7 @@ export async function loadConfig(repoRoot) {
       const { logError } = await import("./logger.js");
       await logError(repoRoot, "loadConfig", "failed to read config, using defaults", { error: error.message });
     }
-    return { enabled: true, count_blank_lines: false, tracking_commit_suffix: "[ai-tracking]", auto_tracking_commit: true };
+    return { enabled: true, countBlankLines: false, trackingCommitSuffix: "[ai-tracking]", autoTrackingCommit: true };
   }
 }
 
