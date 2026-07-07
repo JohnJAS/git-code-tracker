@@ -14,8 +14,8 @@ export async function runAiCodeStats(args = process.argv.slice(2), options = {})
   const filters = parseArgs(args);
   let records = await readRecords(repoRoot);
 
-  if (filters.author) records = records.filter((record) => record.author === filters.author);
-  if (filters.since) records = records.filter((record) => record.date >= filters.since);
+  if (filters.author) { records = records.filter((record) => record.author === filters.author); }
+  if (filters.since) { records = records.filter((record) => record.date >= filters.since); }
 
   const totalLines = sum(records, "total_lines");
   const aiLines = sum(records, "ai_lines");
@@ -45,7 +45,7 @@ export async function runAiCodeStats(args = process.argv.slice(2), options = {})
     durationMs: timer.elapsedMs(),
   });
 
-  if (!options.silent) console.log(output);
+  if (!options.silent) { console.log(output); }
   return { totalLines, aiLines, ratio, aiCodeCommits, aiGeneratedCommits, trackedCommits: records.length, recent, output };
 }
 
@@ -53,9 +53,9 @@ function parseArgs(args) {
   const filters = { last: 10 };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
-    if (arg === "--author") filters.author = args[++i];
-    else if (arg === "--since") filters.since = args[++i];
-    else if (arg === "--last") filters.last = Number(args[++i] || 10);
+    if (arg === "--author") { filters.author = args[++i]; }
+    else if (arg === "--since") { filters.since = args[++i]; }
+    else if (arg === "--last") { filters.last = Number(args[++i] || 10); }
   }
   return filters;
 }

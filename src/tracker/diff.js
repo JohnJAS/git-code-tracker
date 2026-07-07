@@ -14,12 +14,12 @@ export function parseAddedLinesFromDiff(diffText) {
       continue;
     }
 
-    if (!currentFile) continue;
-    if (!rawLine.startsWith("+")) continue;
-    if (rawLine.startsWith("+++")) continue;
+    if (!currentFile) { continue; }
+    if (!rawLine.startsWith("+")) { continue; }
+    if (rawLine.startsWith("+++")) { continue; }
 
     const line = rawLine.slice(1);
-    if (!result[currentFile]) result[currentFile] = [];
+    if (!result[currentFile]) { result[currentFile] = []; }
     result[currentFile].push(line);
   }
 
@@ -54,12 +54,12 @@ export function parseRenamedFilesFromDiff(diffText) {
 }
 
 function normalizeDiffPath(file) {
-  if (file === "/dev/null") return null;
-  if (file.startsWith("b/")) return file.slice(2);
+  if (file === "/dev/null") { return null; }
+  if (file.startsWith("b/")) { return file.slice(2); }
   return file;
 }
 
 function addRename(result, renameFrom, renameTo) {
-  if (!renameFrom || !renameTo) return;
+  if (!renameFrom || !renameTo) { return; }
   result[renameFrom] = renameTo;
 }

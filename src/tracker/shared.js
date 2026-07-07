@@ -13,7 +13,7 @@ function myersDiff(a, b) {
   const n = a.length;
   const m = b.length;
   const max = n + m;
-  if (max === 0) return [];
+  if (max === 0) { return []; }
 
   const v = new Int32Array(2 * max + 1).fill(max + 1);
   const trace = [];
@@ -97,7 +97,7 @@ const DEFAULT_IGNORE = [
 
 export function shouldIgnore(filePath, patterns = DEFAULT_IGNORE) {
   return patterns.some((pattern) => {
-    if (pattern.endsWith("/**")) return filePath.startsWith(pattern.slice(0, -3));
+    if (pattern.endsWith("/**")) { return filePath.startsWith(pattern.slice(0, -3)); }
     return filePath === pattern;
   });
 }

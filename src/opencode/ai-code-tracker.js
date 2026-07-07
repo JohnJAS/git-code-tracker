@@ -195,16 +195,35 @@ async function recordBashChanges(prevHashes, currentHashes, repoRoot) {
   const config = await loadConfig(repoRoot);
   if (!config.enabled) return;
 
+  const pending = await loadPendingLines(repoRoot);
+
   let trackedCount = 0;
-  for (const [file, hash] of Object.entries(currentHashes)) {
+  for (const [file, currentHash] of Object.entries(currentHashes)) {
     if (shouldIgnore(file)) continue;
-    if (prevHashes[file] === hash) continue;
 
     const absolutePath = path.join(repoRoot, file);
     const content = await safeRead(absolutePath);
     const lines = content.split(/\r?\n/).filter((l) => config.count_blank_lines || l.trim() !== "");
-    if (lines.length > 0) {
-      await appendPendingLines(repoRoot, file, lines, { countBlankLines: config.count_blank_lines, dedupeExisting: true, replace: true });
+
+    const existing = pending[file];
+    let shouldRecord = false;
+
+    if (existing) {
+      const existingContents = existing.map((e) => e.content);
+      const contentUnchanged =
+        lines.length === existingContents.length &&
+        lines.every((l, i) => l === existingContents[i]);
+      shouldRecord = !contentUnchanged && (lines.length > 0 || existingContents.length > 0);
+    } else {
+      shouldRecord = prevHashes[file] !== currentHash && lines.length > 0;
+    }
+
+    if (shouldRecord) {
+      await appendPendingLines(repoRoot, file, lines, {
+        countBlankLines: config.count_blank_lines,
+        dedupeExisting: true,
+        replace: true,
+      });
       trackedCount++;
     }
   }

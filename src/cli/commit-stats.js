@@ -299,13 +299,13 @@ function archiveStamp(date) {
 }
 
 async function isAiCreatedCommit(env, options = {}) {
-  if (env.AI_CODE_TRACKER_PROCESS_TREE) return includesAiAgent(env.AI_CODE_TRACKER_PROCESS_TREE);
+  if (env.AI_CODE_TRACKER_PROCESS_TREE) { return includesAiAgent(env.AI_CODE_TRACKER_PROCESS_TREE); }
   const processTree = options.processTreeReader ? await options.processTreeReader() : await readProcessTree();
   return includesAiAgent(processTree);
 }
 
 async function readProcessTree() {
-  if (process.platform === "win32") return readWindowsProcessTree();
+  if (process.platform === "win32") { return readWindowsProcessTree(); }
   return readPosixProcessTree();
 }
 
@@ -317,7 +317,7 @@ async function readPosixProcessTree() {
   while (pid > 1 && !seen.has(pid)) {
     seen.add(pid);
     const stat = await readProcStat(pid) ?? await readPsStat(pid);
-    if (!stat) break;
+    if (!stat) { break; }
     commands.push(stat.command);
     pid = stat.parentPid;
   }
@@ -353,7 +353,7 @@ async function readProcStat(pid) {
     const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8");
     const closeParen = stat.lastIndexOf(")");
     const openParen = stat.indexOf("(");
-    if (openParen === -1 || closeParen === -1) return null;
+    if (openParen === -1 || closeParen === -1) { return null; }
     const command = stat.slice(openParen + 1, closeParen);
     const rest = stat.slice(closeParen + 2).split(" ");
     return { command, parentPid: Number(rest[1] || 0) };
@@ -369,7 +369,7 @@ async function readPsStat(pid, execFileImpl = execFileAsync) {
     });
     const line = stdout.trim();
     const match = line.match(/^(\d+)\s+(.+)$/u);
-    if (!match) return null;
+    if (!match) { return null; }
     return { parentPid: Number(match[1]), command: match[2] };
   } catch {
     return null;

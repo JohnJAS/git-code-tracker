@@ -16,7 +16,7 @@ export async function runAiCodeUpdate(args = process.argv.slice(2)) {
     }
     console.log(`[ai-code-tracker] 发现新版本: ${updateInfo.local_version} → ${updateInfo.remote_version}`);
     console.log(`  发布说明: ${updateInfo.release_url}`);
-    if (updateInfo.body) console.log(`  更新说明: ${updateInfo.body}`);
+    if (updateInfo.body) { console.log(`  更新说明: ${updateInfo.body}`); }
     return;
   }
 

@@ -8,7 +8,7 @@ export async function loadPendingLines(repoRoot) {
     const raw = JSON.parse(await fs.readFile(file, "utf8"));
     return migrateStore(raw);
   } catch (error) {
-    if (error.code === "ENOENT") return {};
+    if (error.code === "ENOENT") { return {}; }
     throw error;
   }
 }
@@ -29,8 +29,8 @@ export async function appendPendingLines(repoRoot, filePath, lines, options = {}
     const existing = new Set(base.map((e) => e.content));
     const additions = [];
     for (const line of lines) {
-      if (!countBlankLines && line.trim() === "") continue;
-      if (dedupeExisting && existing.has(line)) continue;
+      if (!countBlankLines && line.trim() === "") { continue; }
+      if (dedupeExisting && existing.has(line)) { continue; }
       additions.push({ content: line, consumed: false });
     }
     if (replace && additions.length > 0) {
@@ -53,9 +53,9 @@ export function consumeMatchedLines(pending, matched) {
     const entries = next[filePath] ?? [];
     const matchPool = [...lines];
     for (const entry of entries) {
-      if (entry.consumed) continue;
+      if (entry.consumed) { continue; }
       const index = matchPool.indexOf(entry.content);
-      if (index === -1) continue;
+      if (index === -1) { continue; }
       entry.consumed = true;
       matchPool.splice(index, 1);
     }
@@ -67,9 +67,9 @@ export function consumeMatchedLines(pending, matched) {
 function normalizeStore(data) {
   const out = {};
   for (const [filePath, entries] of Object.entries(data ?? {})) {
-    if (!Array.isArray(entries) || entries.length === 0) continue;
+    if (!Array.isArray(entries) || entries.length === 0) { continue; }
     const cleaned = entries.filter(isValidEntry);
-    if (cleaned.length > 0) out[filePath] = cleaned;
+    if (cleaned.length > 0) { out[filePath] = cleaned; }
   }
   return out;
 }
@@ -81,7 +81,7 @@ function isValidEntry(entry) {
 function migrateStore(data) {
   const out = {};
   for (const [filePath, entries] of Object.entries(data ?? {})) {
-    if (!Array.isArray(entries) || entries.length === 0) continue;
+    if (!Array.isArray(entries) || entries.length === 0) { continue; }
     out[filePath] = entries.map((entry) =>
       typeof entry === "string" ? { content: entry, consumed: false } : entry,
     );

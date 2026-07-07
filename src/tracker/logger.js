@@ -52,7 +52,7 @@ async function rotateIfNeeded(logFile, dir) {
     return;
   }
 
-  if (stat.size < MAX_LOG_SIZE) return;
+  if (stat.size < MAX_LOG_SIZE) { return; }
 
   for (let i = MAX_ARCHIVES - 1; i >= 1; i--) {
     const older = path.join(dir, `plugin.log.${i}`);

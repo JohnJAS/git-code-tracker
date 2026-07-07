@@ -20,7 +20,7 @@ export function parseTag(tag) {
 
 export async function checkVersion(repoRoot) {
   const config = await loadConfig(repoRoot);
-  if (!config.check_updates) return null;
+  if (!config.check_updates) { return null; }
 
   const intervalHours = config.update_check_interval_hours ?? 24;
   const lastCheck = config.last_update_check;
@@ -28,7 +28,7 @@ export async function checkVersion(repoRoot) {
     const hoursSinceLastCheck = (Date.now() - new Date(lastCheck).getTime()) / 3600000;
     if (hoursSinceLastCheck < intervalHours) {
       const cached = await readAvailableUpdate(repoRoot);
-      if (cached) return cached;
+      if (cached) { return cached; }
     }
   }
 
@@ -163,7 +163,7 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
   try {
     await logInfo(repoRoot, "updater.upgrade", "downloading release", { url: updateInfo.tarball_url });
     const res = await fetch(updateInfo.tarball_url);
-    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    if (!res.ok) { throw new Error(`Download failed: ${res.status}`); }
     const buffer = await res.arrayBuffer();
     await fs.writeFile(tarballPath, Buffer.from(buffer));
 

@@ -248,23 +248,23 @@ const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION",
 
 function saveToolEnv() {
   const saved = {};
-  for (const key of TOOL_ENV_KEYS) saved[key] = process.env[key];
+  for (const key of TOOL_ENV_KEYS) { saved[key] = process.env[key]; }
   return saved;
 }
 
 function restoreToolEnv(saved) {
   for (const key of TOOL_ENV_KEYS) {
-    if (saved[key] !== undefined) process.env[key] = saved[key];
-    else delete process.env[key];
+    if (saved[key] !== undefined) { process.env[key] = saved[key]; }
+    else { delete process.env[key]; }
   }
 }
 
 function setToolEnv(tool) {
-  for (const key of TOOL_ENV_KEYS) delete process.env[key];
+  for (const key of TOOL_ENV_KEYS) { delete process.env[key]; }
   // Override process tree to prevent host environment from leaking into tests
   process.env.AI_CODE_TRACKER_PROCESS_TREE = "";
-  if (tool === "opencode") process.env.OPENCODE_SESSION = "test";
-  else if (tool === "claude") process.env.CLAUDE_CODE = "1";
+  if (tool === "opencode") { process.env.OPENCODE_SESSION = "test"; }
+  else if (tool === "claude") { process.env.CLAUDE_CODE = "1"; }
 }
 
 async function fileExists(p) {

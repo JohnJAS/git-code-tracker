@@ -6,7 +6,7 @@ export const CSV_HEADER = "author,ai_lines,total_lines,is_ai_commit,commit_id,da
 
 function escapeCsv(value) {
   const text = String(value ?? "");
-  if (!/[",\n\r]/.test(text)) return text;
+  if (!/[",\n\r]/.test(text)) { return text; }
   return `"${text.replaceAll('"', '""')}"`;
 }
 
@@ -28,7 +28,7 @@ export async function appendRecord(csvPath, record) {
   try {
     records = parseCsv(await fs.readFile(csvPath, "utf8"));
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (error.code !== "ENOENT") { throw error; }
   }
 
   if (!records.some((existing) => existing.commit_id === record.commit_id)) {
@@ -43,11 +43,11 @@ export async function removeRecords(csvPath, predicate) {
   try {
     records = parseCsv(await fs.readFile(csvPath, "utf8"));
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (error.code !== "ENOENT") { throw error; }
     return;
   }
   const kept = records.filter((r) => !predicate(r));
-  if (kept.length !== records.length) await writeRecords(csvPath, kept);
+  if (kept.length !== records.length) { await writeRecords(csvPath, kept); }
 }
 
 export async function readRecords(repoRoot) {
@@ -56,13 +56,13 @@ export async function readRecords(repoRoot) {
   try {
     entries = await fs.readdir(dir);
   } catch (error) {
-    if (error.code === "ENOENT") return [];
+    if (error.code === "ENOENT") { return []; }
     throw error;
   }
 
   const records = [];
   for (const entry of entries) {
-    if (!entry.endsWith(".csv")) continue;
+    if (!entry.endsWith(".csv")) { continue; }
     const text = await fs.readFile(path.join(dir, entry), "utf8");
     records.push(...parseCsv(text));
   }
@@ -75,15 +75,15 @@ export async function pruneStaleRecords(repoRoot, isCommitInHistory, author) {
   try {
     entries = await fs.readdir(dir);
   } catch (error) {
-    if (error.code === "ENOENT") return { pruned: 0 };
+    if (error.code === "ENOENT") { return { pruned: 0 }; }
     throw error;
   }
 
   const authorFilename = author ? `${safeFileName(author)}.csv` : null;
   let pruned = 0;
   for (const entry of entries) {
-    if (!entry.endsWith(".csv")) continue;
-    if (authorFilename && entry !== authorFilename) continue;
+    if (!entry.endsWith(".csv")) { continue; }
+    if (authorFilename && entry !== authorFilename) { continue; }
     const csvPath = path.join(dir, entry);
     const records = parseCsv(await fs.readFile(csvPath, "utf8"));
     const kept = [];
@@ -94,7 +94,7 @@ export async function pruneStaleRecords(repoRoot, isCommitInHistory, author) {
         pruned += 1;
       }
     }
-    if (kept.length !== records.length) await writeRecords(csvPath, kept);
+    if (kept.length !== records.length) { await writeRecords(csvPath, kept); }
   }
 
   return { pruned };
@@ -108,7 +108,7 @@ async function writeRecords(csvPath, records) {
 
 export function parseCsv(text) {
   const rows = parseRows(text.replace(/^﻿/, ""));
-  if (rows.length === 0) return [];
+  if (rows.length === 0) { return []; }
   const [header, ...dataRows] = rows;
 
   return dataRows

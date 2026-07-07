@@ -26,7 +26,7 @@ export async function withFileLock(lockFile, fn, options = {}) {
         await fs.rm(lockFile, { force: true });
       }
     } catch (error) {
-      if (error.code !== "EEXIST") throw error;
+      if (error.code !== "EEXIST") { throw error; }
       if (Date.now() - started >= timeoutMs) {
         const lockError = new Error(`Timed out waiting for lock: ${lockFile}`);
         await writeRecoveryLog(lockFile, lockError, {
@@ -76,7 +76,7 @@ function sleep(ms) {
 
 async function writeRecoveryLog(filePath, error, { operation, relatedPath }) {
   const tracker = findTrackerDir(filePath);
-  if (!tracker) return;
+  if (!tracker) { return; }
 
   const message = [
     `[${new Date().toISOString()}] ${operation}`,
@@ -97,6 +97,6 @@ async function writeRecoveryLog(filePath, error, { operation, relatedPath }) {
 function findTrackerDir(filePath) {
   const parts = path.resolve(filePath).split(path.sep);
   const index = parts.lastIndexOf(".ai-tracking");
-  if (index === -1) return null;
+  if (index === -1) { return null; }
   return parts.slice(0, index + 1).join(path.sep) || path.sep;
 }

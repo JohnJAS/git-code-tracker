@@ -246,18 +246,18 @@ test("post-commit writes csv and consumes matched lines", async () => {
     git: async (args) => {
       gitCalls.push(args);
       const key = args.join(" ");
-      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
-      if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("branch --all --contains")) return "main\n";
-      if (key === "rev-parse HEAD") return "abc123";
-      if (key === "log -1 --pretty=%an") return "cyd";
-      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-05T12:34:56+08:00";
+      if (key === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
+      if (key === "rev-parse --verify HEAD") { return "abc123"; }
+      if (key.startsWith("branch --all --contains")) { return "main\n"; }
+      if (key === "rev-parse HEAD") { return "abc123"; }
+      if (key === "log -1 --pretty=%an") { return "cyd"; }
+      if (key === "log -1 --pretty=%ad --date=iso-strict") { return "2026-05-05T12:34:56+08:00"; }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Implement thing\n\nBody\n";
-      if (key === "diff --cached --name-only") return ".ai-tracking/cyd.csv\n";
+      if (key === "log -1 --pretty=%B") { return "Implement thing\n\nBody\n"; }
+      if (key === "diff --cached --name-only") { return ".ai-tracking/cyd.csv\n"; }
       return "";
     },
   });
@@ -289,19 +289,19 @@ test("post-commit skips tracking when commit already includes CSV (auto_tracking
     git: async (args) => {
       gitCalls.push(args);
       const key = args.join(" ");
-      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
-      if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("branch --all --contains")) return "main\n";
-      if (key === "rev-parse HEAD") return "abc123";
-      if (key === "log -1 --pretty=%an") return "cyd";
-      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-05T12:34:56+08:00";
-      if (key === "rev-parse HEAD~1:.ai-tracking/cyd.csv") return "parentblob";
-      if (key === "rev-parse HEAD:.ai-tracking/cyd.csv") return "currentblob";
+      if (key === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
+      if (key === "rev-parse --verify HEAD") { return "abc123"; }
+      if (key.startsWith("branch --all --contains")) { return "main\n"; }
+      if (key === "rev-parse HEAD") { return "abc123"; }
+      if (key === "log -1 --pretty=%an") { return "cyd"; }
+      if (key === "log -1 --pretty=%ad --date=iso-strict") { return "2026-05-05T12:34:56+08:00"; }
+      if (key === "rev-parse HEAD~1:.ai-tracking/cyd.csv") { return "parentblob"; }
+      if (key === "rev-parse HEAD:.ai-tracking/cyd.csv") { return "currentblob"; }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Implement thing\n\nBody\n";
+      if (key === "log -1 --pretty=%B") { return "Implement thing\n\nBody\n"; }
       return "";
     },
   });
@@ -335,18 +335,18 @@ test("post-commit copies AI lines from cherry-pick source", async () => {
     env: {},
     git: async (args) => {
       const key = args.join(" ");
-      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
-      if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("branch --all --contains")) return "main\n";
-      if (key === "rev-parse HEAD") return "abc123";
-      if (key === "log -1 --pretty=%an") return "dev";
-      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";
+      if (key === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
+      if (key === "rev-parse --verify HEAD") { return "abc123"; }
+      if (key.startsWith("branch --all --contains")) { return "main\n"; }
+      if (key === "rev-parse HEAD") { return "abc123"; }
+      if (key === "log -1 --pretty=%an") { return "dev"; }
+      if (key === "log -1 --pretty=%ad --date=iso-strict") { return "2026-05-14T10:00:00+08:00"; }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Add feature\n\n(cherry picked from commit deadbeef)\n";
-      if (key === "diff --cached --name-only") return ".ai-tracking/dev.csv\n";
+      if (key === "log -1 --pretty=%B") { return "Add feature\n\n(cherry picked from commit deadbeef)\n"; }
+      if (key === "diff --cached --name-only") { return ".ai-tracking/dev.csv\n"; }
       return "";
     },
   });
@@ -374,18 +374,18 @@ test("post-commit does not copy AI lines when no cherry-pick source", async () =
     env: {},
     git: async (args) => {
       const key = args.join(" ");
-      if (key === "rev-parse --verify HEAD^2") throw new Error("no second parent");
-      if (key === "rev-parse --verify HEAD") return "abc123";
-      if (key.startsWith("branch --all --contains")) return "main\n";
-      if (key === "rev-parse HEAD") return "abc123";
-      if (key === "log -1 --pretty=%an") return "dev";
-      if (key === "log -1 --pretty=%ad --date=iso-strict") return "2026-05-14T10:00:00+08:00";
+      if (key === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
+      if (key === "rev-parse --verify HEAD") { return "abc123"; }
+      if (key.startsWith("branch --all --contains")) { return "main\n"; }
+      if (key === "rev-parse HEAD") { return "abc123"; }
+      if (key === "log -1 --pretty=%an") { return "dev"; }
+      if (key === "log -1 --pretty=%ad --date=iso-strict") { return "2026-05-14T10:00:00+08:00"; }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Normal commit\n\nNo cherry-pick here\n";
-      if (key === "diff --cached --name-only") return ".ai-tracking/dev.csv\n";
+      if (key === "log -1 --pretty=%B") { return "Normal commit\n\nNo cherry-pick here\n"; }
+      if (key === "diff --cached --name-only") { return ".ai-tracking/dev.csv\n"; }
       return "";
     },
   });
@@ -425,12 +425,12 @@ test("post-commit skips tracking commit with suffix at end of message", async ()
     repoRoot,
     env: {},
     git: async (args) => {
-      if (args.join(" ") === "rev-parse --verify HEAD^2") throw new Error("no second parent");
+      if (args.join(" ") === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Implement thing\n\nSome body\n\n[ai-tracking]\n";
+      if (key === "log -1 --pretty=%B") { return "Implement thing\n\nSome body\n\n[ai-tracking]\n"; }
       return "";
     },
   });
@@ -452,12 +452,12 @@ test("post-commit skips tracking commit with custom suffix from config", async (
     repoRoot,
     env: {},
     git: async (args) => {
-      if (args.join(" ") === "rev-parse --verify HEAD^2") throw new Error("no second parent");
+      if (args.join(" ") === "rev-parse --verify HEAD^2") { throw new Error("no second parent"); }
       return "";
     },
     gitRaw: async (args) => {
       const key = args.join(" ");
-      if (key === "log -1 --pretty=%B") return "Implement thing\n\n[custom-suffix]\n";
+      if (key === "log -1 --pretty=%B") { return "Implement thing\n\n[custom-suffix]\n"; }
       return "";
     },
   });

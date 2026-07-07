@@ -27,14 +27,14 @@ function skillRelativeDir(repoRoot) {
   // This ensures git hooks reference the same path regardless of which
   // skill directory's install.js is running.
   const opencodeDir = path.join(repoRoot, ".opencode", "skills", "ai-code-tracker");
-  if (fsSync.existsSync(opencodeDir)) return ".opencode/skills/ai-code-tracker";
+  if (fsSync.existsSync(opencodeDir)) { return ".opencode/skills/ai-code-tracker"; }
   const claudeDir = path.join(repoRoot, ".claude", "skills", "ai-code-tracker");
-  if (fsSync.existsSync(claudeDir)) return ".claude/skills/ai-code-tracker";
+  if (fsSync.existsSync(claudeDir)) { return ".claude/skills/ai-code-tracker"; }
   // Fallback: derive from script location
   const scriptDir = moduleDirFromFileUrl(import.meta.url);
   const skillRoot = path.resolve(scriptDir, "..", "..");
   const rel = path.relative(repoRoot, skillRoot).replace(/\\/g, "/");
-  if (rel.startsWith("..")) return ".opencode/skills/ai-code-tracker";
+  if (rel.startsWith("..")) { return ".opencode/skills/ai-code-tracker"; }
   return rel;
 }
 
@@ -112,7 +112,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
 
   for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
-    if (!await hasEffectiveHook(hook, hookScripts[hookName])) missing.push(`${hookName} hook`);
+    if (!await hasEffectiveHook(hook, hookScripts[hookName])) { missing.push(`${hookName} hook`); }
   }
 
   const gitignorePath = path.join(repoRoot, ".gitignore");
@@ -120,7 +120,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
     const gitignoreContent = await fs.readFile(gitignorePath, "utf8");
     const existingLines = gitignoreContent.split(/\r?\n/);
     const missingLines = EXPECTED_GITIGNORE_LINES.filter((line) => !existingLines.includes(line));
-    if (missingLines.length > 0) mismatches.push(`gitignore (missing: ${missingLines.join(", ")})`);
+    if (missingLines.length > 0) { mismatches.push(`gitignore (missing: ${missingLines.join(", ")})`); }
   } else {
     mismatches.push("gitignore (file not found)");
   }
@@ -131,7 +131,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
   } else {
     try {
       const data = JSON.parse(await fs.readFile(cfg, "utf8"));
-      if (!data.enabled) mismatches.push("tracker config");
+      if (!data.enabled) { mismatches.push("tracker config"); }
     } catch {
       mismatches.push("tracker config");
     }
@@ -144,20 +144,20 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
       missing.push("opencode plugin");
     } else {
       const actual = await fs.readFile(opencodePluginPath(repoRoot), "utf8");
-      if (actual.trimEnd() !== pluginContent.trimEnd()) mismatches.push("opencode plugin");
+      if (actual.trimEnd() !== pluginContent.trimEnd()) { mismatches.push("opencode plugin"); }
     }
     for (const file of OPENCODE_COMMAND_FILES) {
       const cmd = path.join(repoRoot, ".opencode", "commands", file);
-      if (!await exists(cmd)) missing.push(`opencode command ${file}`);
+      if (!await exists(cmd)) { missing.push(`opencode command ${file}`); }
     }
   }
 
   // Claude Code: check hooks + commands
   if (isClaude || (!isOpencode && !isClaude)) {
-    if (!await hasClaudeHooks(repoRoot)) missing.push("Claude Code hooks");
+    if (!await hasClaudeHooks(repoRoot)) { missing.push("Claude Code hooks"); }
     for (const file of CLAUDE_COMMAND_FILES) {
       const cmd = path.join(repoRoot, ".claude", "commands", file);
-      if (!await exists(cmd)) missing.push(`Claude Code command ${file}`);
+      if (!await exists(cmd)) { missing.push(`Claude Code command ${file}`); }
     }
   }
 
@@ -178,7 +178,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
     let installedVersion = "0.1.0";
     try {
       const pkg = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
-      if (pkg.name === "ai-commit-statistic-skill") installedVersion = pkg.version || installedVersion;
+      if (pkg.name === "ai-commit-statistic-skill") { installedVersion = pkg.version || installedVersion; }
     } catch {}
     await logInfo(repoRoot, "install", "writing tracker config");
     await atomicWriteJson(configPath(repoRoot), expectedConfigObject(installedVersion));
@@ -231,7 +231,7 @@ async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo(repo
   // Remove git hook blocks
   for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
-    if (!await exists(hook)) continue;
+    if (!await exists(hook)) { continue; }
     let content = await fs.readFile(hook, "utf8");
     content = removeExistingBlock(content).trimEnd();
     if (!content || content === "#!/bin/sh") {
@@ -275,12 +275,12 @@ async function writeExecutable(destination, content) {
 async function injectHook(repoRoot, hookName, command) {
   const hook = path.join(repoRoot, ".git", "hooks", hookName);
   let content = "";
-  if (await exists(hook)) content = await fs.readFile(hook, "utf8");
-  if (await hasEffectiveHook(hook, command)) return;
+  if (await exists(hook)) { content = await fs.readFile(hook, "utf8"); }
+  if (await hasEffectiveHook(hook, command)) { return; }
 
   content = removeExistingBlock(content);
 
-  if (!content.startsWith("#!")) content = `#!/bin/sh\n${content}`;
+  if (!content.startsWith("#!")) { content = `#!/bin/sh\n${content}`; }
   const block = `\n${BEGIN}\n${command}\n${END}\n`;
   await fs.writeFile(hook, insertBeforeTerminalExec(content, block), "utf8");
   await fs.chmod(hook, 0o755);
@@ -311,12 +311,12 @@ async function hasEffectiveHook(hook, script) {
   }
 
   const blockIndex = content.indexOf(BEGIN);
-  if (blockIndex === -1) return false;
+  if (blockIndex === -1) { return false; }
   const endIndex = content.indexOf(END, blockIndex);
-  if (endIndex === -1) return false;
+  if (endIndex === -1) { return false; }
 
   const blockBody = content.slice(blockIndex + BEGIN.length + 1, endIndex);
-  if (blockBody.trimEnd() !== script.trimEnd()) return false;
+  if (blockBody.trimEnd() !== script.trimEnd()) { return false; }
 
   const execMatch = content.match(/^exec\b.*$/m);
   return !execMatch || execMatch.index === undefined || blockIndex < execMatch.index;
@@ -349,32 +349,32 @@ function claudeHookCommand() {
 
 async function detectActiveTool() {
   // Check environment variables first (works on all platforms)
-  if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_SESSION) return "claude";
-  if (process.env.OPENCODE_SESSION || process.env.CODEAGENT_SESSION) return "opencode";
+  if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_SESSION) { return "claude"; }
+  if (process.env.OPENCODE_SESSION || process.env.CODEAGENT_SESSION) { return "opencode"; }
 
   // Allow test override (same pattern as commit-stats.js)
   const envTree = process.env.AI_CODE_TRACKER_PROCESS_TREE;
   if (envTree !== undefined) {
     const lower = envTree.toLowerCase();
-    if (/\bclaude\b/.test(lower)) return "claude";
-    if (/\bopencode\b/.test(lower) || /\bcodeagent\b/.test(lower)) return "opencode";
+    if (/\bclaude\b/.test(lower)) { return "claude"; }
+    if (/\bopencode\b/.test(lower) || /\bcodeagent\b/.test(lower)) { return "opencode"; }
     return "unknown";
   }
 
   // Check process tree
   if (process.platform === "win32") {
     const tree = await readWindowsProcessTree();
-    if (/\bclaude\b/.test(tree)) return "claude";
-    if (/\bopencode\b/.test(tree) || /\bcodeagent\b/.test(tree)) return "opencode";
+    if (/\bclaude\b/.test(tree)) { return "claude"; }
+    if (/\bopencode\b/.test(tree) || /\bcodeagent\b/.test(tree)) { return "opencode"; }
   } else {
     // Unix: walk up from parent
     let pid = process.ppid;
     for (let i = 0; i < 10 && pid > 1; i++) {
       const stat = await readProcStat(pid) ?? await readPsStat(pid);
-      if (!stat) break;
+      if (!stat) { break; }
       const cmd = stat.command.toLowerCase();
-      if (/\bclaude\b/.test(cmd)) return "claude";
-      if (/\bopencode\b/.test(cmd) || /\bcodeagent\b/.test(cmd)) return "opencode";
+      if (/\bclaude\b/.test(cmd)) { return "claude"; }
+      if (/\bopencode\b/.test(cmd) || /\bcodeagent\b/.test(cmd)) { return "opencode"; }
       pid = stat.parentPid;
     }
   }
@@ -408,7 +408,7 @@ async function readProcStat(pid) {
     const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8");
     const closeParen = stat.lastIndexOf(")");
     const openParen = stat.indexOf("(");
-    if (openParen === -1 || closeParen === -1) return null;
+    if (openParen === -1 || closeParen === -1) { return null; }
     const command = stat.slice(openParen + 1, closeParen);
     const rest = stat.slice(closeParen + 2).split(" ");
     return { command, parentPid: Number(rest[1] || 0) };
@@ -424,7 +424,7 @@ async function readPsStat(pid) {
       timeout: 3000,
     });
     const match = stdout.trim().match(/^(\d+)\s+(.+)$/u);
-    if (!match) return null;
+    if (!match) { return null; }
     return { parentPid: Number(match[1]), command: match[2] };
   } catch {
     return null;
@@ -434,9 +434,9 @@ async function readPsStat(pid) {
 async function updateGitignore(repoRoot) {
   const gitignore = path.join(repoRoot, ".gitignore");
   let content = "";
-  if (await exists(gitignore)) content = await fs.readFile(gitignore, "utf8");
+  if (await exists(gitignore)) { content = await fs.readFile(gitignore, "utf8"); }
   const additions = EXPECTED_GITIGNORE_LINES.filter((line) => !content.split(/\r?\n/).includes(line));
-  if (additions.length === 0) return;
+  if (additions.length === 0) { return; }
   const prefix = content && !content.endsWith("\n") ? "\n" : "";
   await fs.writeFile(gitignore, `${content}${prefix}${additions.join("\n")}\n`, "utf8");
 }
@@ -452,7 +452,7 @@ After installing or repairing ai-code-tracker, tell the user to restart the curr
 When cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.
 `;
   let content = "";
-  if (await exists(agents)) content = await fs.readFile(agents, "utf8");
+  if (await exists(agents)) { content = await fs.readFile(agents, "utf8"); }
   if (content.includes("## AI Code Tracker")) {
     if (!content.includes("cherry-pick -x")) {
       await fs.writeFile(agents, `${content.trimEnd()}\n\nWhen cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.\n`, "utf8");
@@ -469,9 +469,9 @@ async function ensureOpencodePackage(repoRoot) {
   try {
     data = JSON.parse(await fs.readFile(packageFile, "utf8"));
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (error.code !== "ENOENT") { throw error; }
   }
-  if (data.type === "module") return;
+  if (data.type === "module") { return; }
   data.type = "module";
   await fs.writeFile(packageFile, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
@@ -520,7 +520,7 @@ async function deployCommands(repoRoot, tool) {
 
 async function ensureWritableRepo(repoRoot) {
   const gitDir = path.join(repoRoot, ".git");
-  if (!await exists(gitDir)) throw new Error(`Not a git repository: ${repoRoot}`);
+  if (!await exists(gitDir)) { throw new Error(`Not a git repository: ${repoRoot}`); }
   await fs.access(repoRoot);
 }
 
@@ -536,7 +536,7 @@ async function injectClaudeHooks(repoRoot) {
   try {
     settings = JSON.parse(await fs.readFile(settingsFile, "utf8"));
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (error.code !== "ENOENT") { throw error; }
   }
 
   settings.hooks = settings.hooks ?? {};
@@ -548,7 +548,7 @@ async function injectClaudeHooks(repoRoot) {
     const existing = arr.find((e) => e.matcher === hookDef.matcher);
     if (existing) {
       const hasCommand = existing.hooks?.some((h) => h.command === hookDef.hooks[0].command);
-      if (!hasCommand) existing.hooks = [...(existing.hooks ?? []), ...hookDef.hooks];
+      if (!hasCommand) { existing.hooks = [...(existing.hooks ?? []), ...hookDef.hooks]; }
     } else {
       arr.push(hookDef);
     }
@@ -589,11 +589,11 @@ async function hasClaudeHooks(repoRoot) {
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const hookDef = expected[event][0];
     const arr = settings.hooks?.[event];
-    if (!Array.isArray(arr)) return false;
+    if (!Array.isArray(arr)) { return false; }
     const entry = arr.find((e) => e.matcher === hookDef.matcher);
-    if (!entry) return false;
+    if (!entry) { return false; }
     const hasCommand = entry.hooks?.some((h) => h.command === hookDef.hooks[0].command);
-    if (!hasCommand) return false;
+    if (!hasCommand) { return false; }
   }
   return true;
 }
@@ -615,13 +615,13 @@ async function removeClaudeHooks(repoRoot) {
   ];
   for (const event of ["PreToolUse", "PostToolUse"]) {
     const arr = settings.hooks[event];
-    if (!Array.isArray(arr)) continue;
+    if (!Array.isArray(arr)) { continue; }
     settings.hooks[event] = arr.filter((entry) => {
-      if (entry.matcher !== CLAUDE_HOOK_MATCHER) return true;
+      if (entry.matcher !== CLAUDE_HOOK_MATCHER) { return true; }
       entry.hooks = (entry.hooks ?? []).filter((h) => !cmds.some((cmd) => h.command === `${cmd} pre` || h.command === `${cmd} post`));
       return entry.hooks.length > 0;
     });
-    if (settings.hooks[event].length === 0) delete settings.hooks[event];
+    if (settings.hooks[event].length === 0) { delete settings.hooks[event]; }
   }
 
   await writeSettings(settingsFile, settings);
@@ -629,7 +629,7 @@ async function removeClaudeHooks(repoRoot) {
 
 async function cleanGitignore(repoRoot) {
   const gitignore = path.join(repoRoot, ".gitignore");
-  if (!await exists(gitignore)) return;
+  if (!await exists(gitignore)) { return; }
   let content = await fs.readFile(gitignore, "utf8");
   const lines = content.split(/\r?\n/);
   const cleaned = lines.filter((line) => !EXPECTED_GITIGNORE_LINES.includes(line));
@@ -643,11 +643,11 @@ async function cleanGitignore(repoRoot) {
 
 async function cleanAgentsRule(repoRoot) {
   const agents = path.join(repoRoot, "AGENTS.md");
-  if (!await exists(agents)) return;
+  if (!await exists(agents)) { return; }
   let content = await fs.readFile(agents, "utf8");
   const marker = "## AI Code Tracker";
   const idx = content.indexOf(marker);
-  if (idx === -1) return;
+  if (idx === -1) { return; }
   const before = content.slice(0, idx).trimEnd();
   const result = before.trimEnd();
   if (!result) {
@@ -658,7 +658,7 @@ async function cleanAgentsRule(repoRoot) {
 }
 
 async function writeSettings(settingsFile, settings) {
-  if (settings.hooks && Object.keys(settings.hooks).length === 0) delete settings.hooks;
+  if (settings.hooks && Object.keys(settings.hooks).length === 0) { delete settings.hooks; }
   await fs.writeFile(settingsFile, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
@@ -673,8 +673,8 @@ async function exists(file) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   runInstall().then((result) => {
-    if (result?.uninstalled) console.log("ai-code-tracker uninstalled");
-    else if (result?.ok) console.log("ai-code-tracker installed");
+    if (result?.uninstalled) { console.log("ai-code-tracker uninstalled"); }
+    else if (result?.ok) { console.log("ai-code-tracker installed"); }
   }).catch((error) => {
     console.error(`[ai-code-tracker] ${error.message}`);
     process.exitCode = 1;

@@ -24,9 +24,9 @@ export function buildPendingCommit({
         renameSources: renameSourcesByTarget[filePath] ?? [],
         missingPending,
       });
-      if (!sourcePath) continue;
+      if (!sourcePath) { continue; }
       aiLines += 1;
-      if (!matchedLines[sourcePath]) matchedLines[sourcePath] = [];
+      if (!matchedLines[sourcePath]) { matchedLines[sourcePath] = []; }
       matchedLines[sourcePath].push(line);
     }
   }
@@ -51,31 +51,31 @@ function buildPendingPools(pendingLines) {
 function buildRenameSourcesByTarget(renamedFiles) {
   const sourcesByTarget = {};
   for (const [source, target] of Object.entries(renamedFiles ?? {})) {
-    if (!sourcesByTarget[target]) sourcesByTarget[target] = [];
+    if (!sourcesByTarget[target]) { sourcesByTarget[target] = []; }
     sourcesByTarget[target].push(source);
   }
   return sourcesByTarget;
 }
 
 function findMatchSource({ pendingPools, filePath, line, renameSources, missingPending }) {
-  if (consumeFromPool(pendingPools[filePath], line)) return filePath;
+  if (consumeFromPool(pendingPools[filePath], line)) { return filePath; }
 
   for (const source of renameSources) {
-    if (consumeFromPool(pendingPools[source], line)) return source;
+    if (consumeFromPool(pendingPools[source], line)) { return source; }
   }
 
   for (const source of missingPending) {
-    if (source === filePath || renameSources.includes(source)) continue;
-    if (consumeFromPool(pendingPools[source], line)) return source;
+    if (source === filePath || renameSources.includes(source)) { continue; }
+    if (consumeFromPool(pendingPools[source], line)) { return source; }
   }
 
   return null;
 }
 
 function consumeFromPool(pool, line) {
-  if (!pool) return false;
+  if (!pool) { return false; }
   const index = pool.indexOf(line);
-  if (index === -1) return false;
+  if (index === -1) { return false; }
   pool.splice(index, 1);
   return true;
 }

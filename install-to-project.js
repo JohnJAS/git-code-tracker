@@ -17,7 +17,7 @@ const targetClaudeSkill = path.join(targetRoot, ".claude", "skills", "ai-code-tr
 let _gitPath = null;
 
 async function findGit() {
-  if (_gitPath) return _gitPath;
+  if (_gitPath) { return _gitPath; }
 
   if (process.platform !== "win32") {
     _gitPath = "git";
@@ -27,7 +27,7 @@ async function findGit() {
   const candidates = [];
   const envVars = [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LocalAppData, process.env.ProgramW6432];
   for (const base of envVars) {
-    if (!base) continue;
+    if (!base) { continue; }
     candidates.push(path.join(base, "Git", "cmd", "git.exe"));
     candidates.push(path.join(base, "Git", "bin", "git.exe"));
   }
