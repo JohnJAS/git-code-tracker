@@ -1,1 +1,1 @@
-export { AiCodeTrackerPlugin, recordEditedFile } from "./bundle.js";
+export { AiCodeTrackerPlugin, recordEditedFile } from "../lib/index.js";

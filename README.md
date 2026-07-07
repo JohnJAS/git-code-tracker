@@ -413,6 +413,6 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --uninstall
 # 运行测试
 npm test
 
-# 修改 src 后重新构建 bundle（自动同步到 .opencode/ 和 .claude/）
+# 修改 src 后重新构建 lib（自动同步到 .opencode/ 和 .claude/）
 npm run build
 ```

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runInstall } from "./bundle.js";
+import { runInstall } from "../lib/index.js";
 
 runInstall().then((result) => {
   if (result?.uninstalled) { console.log("ai-code-tracker uninstalled"); }

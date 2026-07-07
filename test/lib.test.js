@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import * as bundle from "../.opencode/skills/ai-code-tracker/scripts/bundle.js";
+import * as lib from "../.opencode/skills/ai-code-tracker/lib/index.js";
 
 const expected = [
   "runCommitStats",
@@ -12,8 +12,8 @@ const expected = [
   "recordEditedFile",
 ];
 
-test("bundle exports all 7 public symbols", () => {
+test("lib/index.js exports all 7 public symbols", () => {
   for (const name of expected) {
-    assert.ok(name in bundle, `missing export: ${name}`);
+    assert.ok(name in lib, `missing export: ${name}`);
   }
 });

@@ -5,6 +5,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applyReleaseFiles } from "../src/tracker/updater.js";
 
+const SCRIPT_FILES = ["ai-update.js", "install.js", "commit-stats.js", "claude-code-hook.js", "ai-code-stats.js", "opencode-plugin.js"];
+
 async function setup() {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-apply-"));
   const skillDest = path.join(repoRoot, ".opencode", "skills", "ai-code-tracker");
@@ -17,37 +19,42 @@ async function setup() {
   const extractDir = path.join(repoRoot, ".extract");
   const srcSkill = path.join(extractDir, ".opencode", "skills", "ai-code-tracker");
   await fs.mkdir(path.join(srcSkill, "scripts"), { recursive: true });
+  await fs.mkdir(path.join(srcSkill, "lib", "tracker"), { recursive: true });
   await fs.mkdir(path.join(srcSkill, "commands"), { recursive: true });
-  for (const f of ["ai-update.js","install.js","commit-stats.js","claude-code-hook.js","ai-code-stats.js","opencode-plugin.js","bundle.js"]) {
+  for (const f of SCRIPT_FILES) {
     await fs.writeFile(path.join(srcSkill, "scripts", f), `// ${f}`, "utf8");
   }
+  await fs.writeFile(path.join(srcSkill, "lib", "index.js"), "// lib index", "utf8");
+  await fs.writeFile(path.join(srcSkill, "lib", "tracker", "updater.js"), "// updater", "utf8");
   await fs.writeFile(path.join(srcSkill, "commands", "cmd.md"), "# cmd", "utf8");
   await fs.writeFile(path.join(srcSkill, "SKILL.md"), "# skill", "utf8");
   return { repoRoot, skillDest, claudeDest, extractDir };
 }
 
-test("applyReleaseFiles removes stale lib/ on .opencode side", async () => {
+test("applyReleaseFiles replaces stale lib/ on .opencode side", async () => {
   const { repoRoot, skillDest, extractDir } = await setup();
   await applyReleaseFiles(repoRoot, extractDir);
-  await assert.rejects(() => fs.stat(path.join(skillDest, "lib")), { code: "ENOENT" });
+  await assert.rejects(() => fs.stat(path.join(skillDest, "lib", "tracker", "old.js")), { code: "ENOENT" });
+  assert.equal(await fs.readFile(path.join(skillDest, "lib", "index.js"), "utf8"), "// lib index");
 });
 
-test("applyReleaseFiles removes stale lib/ on .claude side", async () => {
+test("applyReleaseFiles replaces stale lib/ on .claude side", async () => {
   const { repoRoot, claudeDest, extractDir } = await setup();
   await applyReleaseFiles(repoRoot, extractDir);
-  await assert.rejects(() => fs.stat(path.join(claudeDest, "lib")), { code: "ENOENT" });
+  await assert.rejects(() => fs.stat(path.join(claudeDest, "lib", "tracker", "old.js")), { code: "ENOENT" });
+  assert.equal(await fs.readFile(path.join(claudeDest, "lib", "index.js"), "utf8"), "// lib index");
 });
 
-test("applyReleaseFiles copies bundle.js and wrappers", async () => {
+test("applyReleaseFiles copies wrappers", async () => {
   const { repoRoot, skillDest, extractDir } = await setup();
   await applyReleaseFiles(repoRoot, extractDir);
-  for (const f of ["bundle.js", "commit-stats.js", "install.js"]) {
+  for (const f of ["commit-stats.js", "install.js"]) {
     assert.equal(await fs.readFile(path.join(skillDest, "scripts", f), "utf8"), `// ${f}`);
   }
 });
 
-test("applyReleaseFiles syncs bundle.js to .claude side", async () => {
+test("applyReleaseFiles syncs lib/ to .claude side", async () => {
   const { repoRoot, claudeDest, extractDir } = await setup();
   await applyReleaseFiles(repoRoot, extractDir);
-  assert.equal(await fs.readFile(path.join(claudeDest, "scripts", "bundle.js"), "utf8"), "// bundle.js");
+  assert.equal(await fs.readFile(path.join(claudeDest, "lib", "index.js"), "utf8"), "// lib index");
 });
