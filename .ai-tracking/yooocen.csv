@@ -86,3 +86,4 @@ yooocen,1,1,true,5ce98664b88ff10d8e8d45fc328dae9493df6ffd,2026-07-06 14:08:48,ch
 yooocen,848,848,true,3b8e6897ebe2955293826b94940afa3f46e8b46e,2026-07-07 14:19:37,fix(tracker): resolve race condition in bash change detection for fast commands
 yooocen,9,9,true,722e020acc96221e8db779a8517b878775bfebb9,2026-07-07 14:23:33,docs: 记录快速 Bash 命令 baseline 竞态问题及修复方案
 yooocen,105,105,true,a8b9b5d08d66d5b4261487c3335dd38afcd43568,2026-07-07 15:30:25,refactor: 配置项键名由 snake_case 改为小驼峰
+yooocen,4994,4994,true,e4b2d4cdb2eab871bb4661b9181b5b3d49a69756,2026-07-07 15:47:59,refactor: 用 src→lib 递归拷贝替代 bundle.js 打包
