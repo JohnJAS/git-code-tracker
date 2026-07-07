@@ -374,6 +374,19 @@ grep "post-commit.*complete" .ai-tracking/plugin.log
 
 **修复**：与问题 13 相同，改用 `git branch --all --contains <commit_id>`。源 commit 存在于源分支中（如 `main`），不会被误删。新旧两条记录共存，AI lines 均已正确记录。
 
+### 15. 快速 Bash 命令因 baseline 竞态未被追踪
+
+**现象**：在 opencode 中用快速 Bash 命令（如 `cp` 覆盖已追踪文件）修改文件后，日志显示 `trackedFiles:0`，AI 行数丢失。慢命令（如 `sleep 2 && cp`）则正常追踪。
+
+**原因**：opencode 触发 `tool.execute.before` 钩子后**不会等待其完成**就开始执行 Bash 命令。`handleBashBefore` 中的 `captureGitFileHashes` 需要执行 3 次 git 命令并读取所有变更文件内容，耗时较长。对于快速命令（如 `cp`），Bash 在 baseline 完成前就执行完毕，baseline 读到的是**命令执行后**的文件内容。到 `handleBashAfter` 比较时，`prevHashes[file] === currentHashes[file]`（两者都是命令后的内容），判定为"未变更"而跳过。
+
+慢命令（如 `sleep 2 && cp`）在 sleep 期间 baseline 有足够时间读取命令前的内容，因此能正确检测变更。
+
+**修复**：`recordBashChanges` 改用混合策略，不再仅依赖可能竞态的 `prevHashes` baseline：
+
+- **文件已在 pending-lines 中**（之前被 Write/Edit 追踪过）：直接对比当前文件内容与 pending-lines 中已记录的内容。若不同则记录（`replace: true`），相同则跳过。此路径完全绕开 baseline，不受竞态影响。
+- **文件不在 pending-lines 中**（新文件，未被 AI 工具编辑过）：回退到 `prevHashes` baseline 比较。这类文件竞态概率低（新文件在 baseline 执行时通常还不存在）。
+
 ## 已知限制
 
 ### 并行编辑导致 AI 行数偏低
@@ -400,6 +413,6 @@ node .opencode/skills/ai-code-tracker/scripts/install.js --uninstall
 # 运行测试
 npm test
 
-# 修改 src 后同步到安装目录
-cp -r src/* .opencode/skills/ai-code-tracker/lib/
+# 修改 src 后重新构建 bundle（自动同步到 .opencode/ 和 .claude/）
+npm run build
 ```
