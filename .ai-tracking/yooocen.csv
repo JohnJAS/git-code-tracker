@@ -84,3 +84,4 @@ yooocen,22,24,true,b0690f897b4ecb83b628d3788376047d8651c97c,2026-07-06 11:48:45,
 yooocen,6,6,true,f9868aa187141457b3bb198bdbf98dcf7c55e61a,2026-07-06 11:52:48,fix(tracker): prevent bash fallback from stealing baseline for long commands
 yooocen,1,1,true,5ce98664b88ff10d8e8d45fc328dae9493df6ffd,2026-07-06 14:08:48,chore: bump version to 1.0.3
 yooocen,848,848,true,3b8e6897ebe2955293826b94940afa3f46e8b46e,2026-07-07 14:19:37,fix(tracker): resolve race condition in bash change detection for fast commands
+yooocen,9,9,true,722e020acc96221e8db779a8517b878775bfebb9,2026-07-07 14:23:33,docs: 记录快速 Bash 命令 baseline 竞态问题及修复方案
