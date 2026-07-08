@@ -11,8 +11,10 @@ const sourceRoot = path.dirname(fileURLToPath(import.meta.url));
 const targetRoot = path.resolve(process.argv[2] ?? process.cwd());
 const sourceOpenSkill = path.join(sourceRoot, ".opencode", "skills", "ai-code-tracker");
 const sourceClaudeSkill = path.join(sourceRoot, ".claude", "skills", "ai-code-tracker");
+const sourceCacSkill = path.join(sourceRoot, ".cac", "skills", "ai-code-tracker");
 const targetOpenSkill = path.join(targetRoot, ".opencode", "skills", "ai-code-tracker");
 const targetClaudeSkill = path.join(targetRoot, ".claude", "skills", "ai-code-tracker");
+const targetCacSkill = path.join(targetRoot, ".cac", "skills", "ai-code-tracker");
 
 let _gitPath = null;
 
@@ -60,8 +62,10 @@ try {
   await copySkill(sourceOpenSkill, targetOpenSkill);
   // Copy claude skill
   await copySkill(sourceClaudeSkill, targetClaudeSkill);
+  // Copy codeagent-cli skill
+  await copySkill(sourceCacSkill, targetCacSkill);
 
-  // Run opencode install (handles both opencode and claude setup)
+  // Run opencode install (handles opencode, claude, and codeagent-cli setup)
   await execFileAsync("node", ["--experimental-vm-modules", path.join(targetOpenSkill, "scripts", "install.js")], { cwd: targetRoot });
   console.log(`ai-code-tracker installed into ${targetRoot}`);
 } catch (error) {

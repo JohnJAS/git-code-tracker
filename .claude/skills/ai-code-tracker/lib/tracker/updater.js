@@ -8,8 +8,10 @@ import { logInfo, startTimer } from "./logger.js";
 
 const SKILL_DIR = ".opencode/skills/ai-code-tracker";
 const CLAUDE_SKILL_DIR = ".claude/skills/ai-code-tracker";
+const CAC_SKILL_DIR = ".cac/skills/ai-code-tracker";
 const BACKUP_DIR = ".ai-tracking/backup-pre-update";
 const CLAUDE_BACKUP_DIR = ".ai-tracking/backup-pre-update-claude";
+const CAC_BACKUP_DIR = ".ai-tracking/backup-pre-update-cac";
 const AVAILABLE_UPDATE_FILE = ".ai-tracking/available-update.json";
 
 const GITHUB_API = "https://api.github.com/repos/yooocen/git-code-tracker/releases/latest";
@@ -111,6 +113,15 @@ export async function backup(repoRoot) {
     // .claude skill dir may not exist; skip silently
   }
 
+  const cacSrc = path.join(repoRoot, CAC_SKILL_DIR);
+  const cacDest = path.join(repoRoot, CAC_BACKUP_DIR);
+  await fs.rm(cacDest, { recursive: true, force: true });
+  try {
+    await fs.cp(cacSrc, cacDest, { recursive: true, force: true });
+  } catch {
+    // .cac skill dir may not exist; skip silently
+  }
+
   await logInfo(repoRoot, "updater.backup", "backup created", { durationMs: timer.elapsedMs() });
 }
 
@@ -148,6 +159,16 @@ export async function applyReleaseFiles(repoRoot, extractDir) {
     await logInfo(repoRoot, "updater.upgrade", "synced .claude skill dir");
   } catch {
     // .claude skill dir may not exist; skip silently
+  }
+
+  const cacSkillDest = path.join(repoRoot, CAC_SKILL_DIR);
+  try {
+    await fs.stat(cacSkillDest);
+    await fs.rm(path.join(cacSkillDest, "lib"), { recursive: true, force: true });
+    await fs.cp(skillDest, cacSkillDest, { recursive: true, force: true });
+    await logInfo(repoRoot, "updater.upgrade", "synced .cac skill dir");
+  } catch {
+    // .cac skill dir may not exist; skip silently
   }
 }
 
@@ -227,6 +248,15 @@ export async function rollback(repoRoot) {
     await fs.rm(claudeDest, { recursive: true, force: true });
     await fs.cp(claudeBackupSrc, claudeDest, { recursive: true, force: true });
     await fs.rm(claudeBackupSrc, { recursive: true, force: true });
+  }
+
+  const cacBackupSrc = path.join(repoRoot, CAC_BACKUP_DIR);
+  const cacStat = await fs.stat(cacBackupSrc).catch(() => null);
+  if (cacStat) {
+    const cacDest = path.join(repoRoot, CAC_SKILL_DIR);
+    await fs.rm(cacDest, { recursive: true, force: true });
+    await fs.cp(cacBackupSrc, cacDest, { recursive: true, force: true });
+    await fs.rm(cacBackupSrc, { recursive: true, force: true });
   }
 
   await logInfo(repoRoot, "updater.rollback", "rollback complete", { durationMs: timer.elapsedMs() });
