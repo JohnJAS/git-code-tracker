@@ -11,7 +11,8 @@ async function setup() {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-apply-"));
   const skillDest = path.join(repoRoot, ".opencode", "skills", "ai-code-tracker");
   const claudeDest = path.join(repoRoot, ".claude", "skills", "ai-code-tracker");
-  for (const dir of [skillDest, claudeDest]) {
+  const cacDest = path.join(repoRoot, ".cac", "skills", "ai-code-tracker");
+  for (const dir of [skillDest, claudeDest, cacDest]) {
     await fs.mkdir(path.join(dir, "lib", "tracker"), { recursive: true });
     await fs.writeFile(path.join(dir, "lib", "tracker", "old.js"), "// stale", "utf8");
     await fs.mkdir(path.join(dir, "scripts"), { recursive: true });
@@ -28,7 +29,7 @@ async function setup() {
   await fs.writeFile(path.join(srcSkill, "lib", "tracker", "updater.js"), "// updater", "utf8");
   await fs.writeFile(path.join(srcSkill, "commands", "cmd.md"), "# cmd", "utf8");
   await fs.writeFile(path.join(srcSkill, "SKILL.md"), "# skill", "utf8");
-  return { repoRoot, skillDest, claudeDest, extractDir };
+  return { repoRoot, skillDest, claudeDest, cacDest, extractDir };
 }
 
 test("applyReleaseFiles replaces stale lib/ on .opencode side", async () => {
@@ -57,4 +58,11 @@ test("applyReleaseFiles syncs lib/ to .claude side", async () => {
   const { repoRoot, claudeDest, extractDir } = await setup();
   await applyReleaseFiles(repoRoot, extractDir);
   assert.equal(await fs.readFile(path.join(claudeDest, "lib", "index.js"), "utf8"), "// lib index");
+});
+
+test("applyReleaseFiles syncs lib/ to .cac side", async () => {
+  const { repoRoot, cacDest, extractDir } = await setup();
+  await applyReleaseFiles(repoRoot, extractDir);
+  await assert.rejects(() => fs.stat(path.join(cacDest, "lib", "tracker", "old.js")), { code: "ENOENT" });
+  assert.equal(await fs.readFile(path.join(cacDest, "lib", "index.js"), "utf8"), "// lib index");
 });

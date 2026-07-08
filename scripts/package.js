@@ -17,7 +17,7 @@ const artifact = path.join(outDir, zipName);
 
 console.log(`[package] creating ${zipName}...`);
 execSync(
-  `zip -r "${artifact}" .opencode/skills .claude/skills --exclude "*/node_modules/*"`,
+  `zip -r "${artifact}" .opencode/skills .claude/skills .cac/skills --exclude "*/node_modules/*"`,
   { cwd: repoRoot, stdio: "inherit" }
 );
 

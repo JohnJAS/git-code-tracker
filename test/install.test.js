@@ -244,7 +244,7 @@ test("checkInstall detects missing Claude Code hooks", async () => {
 
 // --- Three-branch logic tests ---
 
-const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION", "CODEAGENT_SESSION", "AI_CODE_TRACKER_PROCESS_TREE"];
+const TOOL_ENV_KEYS = ["CLAUDE_CODE", "CLAUDE_CODE_SESSION", "OPENCODE_SESSION", "CAC_SESSION", "CODEAGENT_CLI", "CODEAGENT_SESSION", "AI_CODE_TRACKER_PROCESS_TREE"];
 
 function saveToolEnv() {
   const saved = {};
@@ -265,6 +265,7 @@ function setToolEnv(tool) {
   process.env.AI_CODE_TRACKER_PROCESS_TREE = "";
   if (tool === "opencode") { process.env.OPENCODE_SESSION = "test"; }
   else if (tool === "claude") { process.env.CLAUDE_CODE = "1"; }
+  else if (tool === "codeagent-cli") { process.env.CAC_SESSION = "1"; }
 }
 
 async function fileExists(p) {
@@ -334,7 +335,32 @@ test("claude detected: installs only Claude hooks and commands", async () => {
   }
 });
 
-test("unknown tool: installs both opencode and Claude", async () => {
+test("codeagent-cli detected: installs only codeagent-cli hooks and commands", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("codeagent-cli");
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    const settings = JSON.parse(await fs.readFile(path.join(repoRoot, ".cac", "settings.json"), "utf8"));
+    assert.ok(settings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash"));
+    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /\.cac\/skills\/ai-code-tracker\/scripts\/claude-code-hook\.js/);
+
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".cac", "commands", file)), `missing ${file}`);
+    }
+
+    assert.ok(!(await fileExists(opencodePluginPath(repoRoot))));
+    assert.ok(!(await fileExists(path.join(repoRoot, ".opencode", "commands", "ai-install.md"))));
+    assert.ok(!(await fileExists(path.join(repoRoot, ".claude", "settings.json"))));
+    assert.ok(!(await fileExists(path.join(repoRoot, ".claude", "commands", "ai-install.md"))));
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("unknown tool: installs opencode, Claude, and codeagent-cli", async () => {
   const repoRoot = await fakeRepo();
   const saved = saveToolEnv();
   setToolEnv("unknown");
@@ -357,6 +383,13 @@ test("unknown tool: installs both opencode and Claude", async () => {
     // Claude commands exist
     for (const file of COMMAND_FILES) {
       assert.ok(await fileExists(path.join(repoRoot, ".claude", "commands", file)), `missing ${file}`);
+    }
+
+    // codeagent-cli hooks and commands exist
+    const cacSettings = JSON.parse(await fs.readFile(path.join(repoRoot, ".cac", "settings.json"), "utf8"));
+    assert.ok(cacSettings.hooks.PreToolUse.find((e) => e.matcher === "Edit|Write|NotebookEdit|Bash"));
+    for (const file of COMMAND_FILES) {
+      assert.ok(await fileExists(path.join(repoRoot, ".cac", "commands", file)), `missing ${file}`);
     }
   } finally {
     restoreToolEnv(saved);
