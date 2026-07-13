@@ -245,7 +245,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
     await deployCommands(repoRoot, "codeagent-cli");
   }
 
-  await ensureAgentsRule(repoRoot);
+  await ensureAgentsRule(repoRoot, tool);
 }
 
 async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
@@ -473,24 +473,68 @@ async function updateGitignore(repoRoot) {
 
 async function ensureAgentsRule(repoRoot, tool) {
   const agents = path.join(repoRoot, "AGENTS.md");
-  const rule = `## AI Code Tracker
-
-Before modifying code in this repository, load the opencode skill \`ai-code-tracker\` and run its preflight check. If tracking is not installed or is broken, ask the user whether to install or repair it. If the user confirms, run the project-level install or repair script automatically, rerun preflight, and continue with code changes only after preflight passes.
-
-After installing or repairing ai-code-tracker, tell the user to restart the current opencode session because project plugins are loaded at opencode startup.
-
-When cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.
-`;
+  const rule = agentsRuleForTool(tool);
   let content = "";
   if (await exists(agents)) { content = await fs.readFile(agents, "utf8"); }
   if (content.includes("## AI Code Tracker")) {
-    if (!content.includes("cherry-pick -x")) {
-      await fs.writeFile(agents, `${content.trimEnd()}\n\nWhen cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.\n`, "utf8");
-    }
+    await fs.writeFile(agents, `${replaceAgentsRule(content, rule).trimEnd()}\n`, "utf8");
     return;
   }
   const prefix = content && !content.endsWith("\n") ? "\n\n" : "";
   await fs.writeFile(agents, `${content}${prefix}${rule}`, "utf8");
+}
+
+function agentsRuleForTool(tool) {
+  const details = agentRuleDetails(tool);
+  return `## AI Code Tracker
+
+Before modifying code in this repository, load the ${details.skillName} \`ai-code-tracker\` and run its preflight check. If tracking is not installed or is broken, ask the user whether to install or repair it. If the user confirms, run the project-level install or repair script automatically, rerun preflight, and continue with code changes only after preflight passes.
+
+After installing or repairing ai-code-tracker, tell the user to restart the current ${details.sessionName} session ${details.restartReason}.
+
+When cherry-picking commits, always use \`git cherry-pick -x\` to preserve the source commit reference. This allows ai-code-tracker to copy the original AI line statistics into the cherry-picked commit's tracking record.
+`;
+}
+
+function agentRuleDetails(tool) {
+  if (tool === "opencode") {
+    return {
+      skillName: "opencode skill",
+      sessionName: "opencode",
+      restartReason: "because project plugins are loaded at opencode startup",
+    };
+  }
+  if (tool === "claude") {
+    return {
+      skillName: "Claude Code skill",
+      sessionName: "Claude Code",
+      restartReason: "so project hooks and commands are reloaded",
+    };
+  }
+  if (tool === "codeagent-cli") {
+    return {
+      skillName: "codeagent-cli skill",
+      sessionName: "codeagent-cli",
+      restartReason: "so project hooks and commands are reloaded",
+    };
+  }
+  return {
+    skillName: "matching local agent skill",
+    sessionName: "agent",
+    restartReason: "so project integrations are reloaded",
+  };
+}
+
+function replaceAgentsRule(content, rule) {
+  const marker = "## AI Code Tracker";
+  const start = content.indexOf(marker);
+  if (start === -1) { return content; }
+  const nextHeading = content.indexOf("\n## ", start + marker.length);
+  const before = content.slice(0, start).trimEnd();
+  const after = nextHeading === -1 ? "" : content.slice(nextHeading).trimStart();
+  const prefix = before ? `${before}\n\n` : "";
+  const suffix = after ? `\n\n${after}` : "";
+  return `${prefix}${rule.trimEnd()}${suffix}`;
 }
 
 async function ensureOpencodePackage(repoRoot) {

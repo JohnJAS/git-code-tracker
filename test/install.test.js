@@ -335,6 +335,61 @@ test("claude detected: installs only Claude hooks and commands", async () => {
   }
 });
 
+test("claude detected: writes Claude-specific AGENTS rule", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("claude");
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    const agents = await fs.readFile(path.join(repoRoot, "AGENTS.md"), "utf8");
+    assert.match(agents, /Claude Code skill `ai-code-tracker`/);
+    assert.match(agents, /current Claude Code session/);
+    assert.doesNotMatch(agents, /opencode startup/);
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
+test("installer replaces old opencode AGENTS rule for detected tool", async () => {
+  const repoRoot = await fakeRepo();
+  const saved = saveToolEnv();
+  setToolEnv("claude");
+  await fs.writeFile(
+    path.join(repoRoot, "AGENTS.md"),
+    [
+      "# Project Notes",
+      "",
+      "Keep this.",
+      "",
+      "## AI Code Tracker",
+      "",
+      "Before modifying code in this repository, load the opencode skill `ai-code-tracker` and run its preflight check.",
+      "",
+      "After installing or repairing ai-code-tracker, tell the user to restart the current opencode session because project plugins are loaded at opencode startup.",
+      "",
+      "## Other Section",
+      "",
+      "Keep this too.",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  try {
+    await installIntoRepo(repoRoot);
+
+    const agents = await fs.readFile(path.join(repoRoot, "AGENTS.md"), "utf8");
+    assert.match(agents, /# Project Notes/);
+    assert.match(agents, /## Other Section/);
+    assert.match(agents, /Claude Code skill `ai-code-tracker`/);
+    assert.doesNotMatch(agents, /opencode startup/);
+  } finally {
+    restoreToolEnv(saved);
+  }
+});
+
 test("codeagent-cli detected: installs only codeagent-cli hooks and commands", async () => {
   const repoRoot = await fakeRepo();
   const saved = saveToolEnv();
