@@ -6,13 +6,27 @@ import { loadConfig } from "./shared.js";
 import { atomicWriteJson } from "./lock.js";
 import { logInfo, startTimer } from "./logger.js";
 
-const SKILL_DIR = ".opencode/skills/ai-code-tracker";
+const SKILL_DIR_CANDIDATES = [
+  ".opencode/skills/ai-code-tracker",
+  ".claude/skills/ai-code-tracker",
+  ".cac/skills/ai-code-tracker",
+];
 const CLAUDE_SKILL_DIR = ".claude/skills/ai-code-tracker";
 const CAC_SKILL_DIR = ".cac/skills/ai-code-tracker";
 const BACKUP_DIR = ".ai-tracking/backup-pre-update";
 const CLAUDE_BACKUP_DIR = ".ai-tracking/backup-pre-update-claude";
 const CAC_BACKUP_DIR = ".ai-tracking/backup-pre-update-cac";
 const AVAILABLE_UPDATE_FILE = ".ai-tracking/available-update.json";
+
+async function primarySkillDir(repoRoot) {
+  for (const dir of SKILL_DIR_CANDIDATES) {
+    try {
+      await fs.stat(path.join(repoRoot, dir));
+      return dir;
+    } catch {}
+  }
+  return SKILL_DIR_CANDIDATES[0];
+}
 
 const GITHUB_API = "https://api.github.com/repos/yooocen/git-code-tracker/releases/latest";
 
@@ -98,7 +112,8 @@ async function clearAvailableUpdate(repoRoot) {
 
 export async function backup(repoRoot) {
   const timer = startTimer();
-  const src = path.join(repoRoot, SKILL_DIR);
+  const skillDir = await primarySkillDir(repoRoot);
+  const src = path.join(repoRoot, skillDir);
   const dest = path.join(repoRoot, BACKUP_DIR);
 
   await fs.rm(dest, { recursive: true, force: true });
@@ -126,7 +141,8 @@ export async function backup(repoRoot) {
 }
 
 export async function applyReleaseFiles(repoRoot, extractDir) {
-  const skillDest = path.join(repoRoot, SKILL_DIR);
+  const skillDir = await primarySkillDir(repoRoot);
+  const skillDest = path.join(repoRoot, skillDir);
   const srcSkillDir = path.join(extractDir, ".opencode", "skills", "ai-code-tracker");
 
   const scriptsSrc = path.join(srcSkillDir, "scripts");
@@ -194,7 +210,8 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
     await fs.mkdir(extractDir, { recursive: true });
     execFileSync("tar", ["xzf", tarballPath, "--strip-components=1", "-C", extractDir], { cwd: tmpDir });
 
-    const skillDest = path.join(repoRoot, SKILL_DIR);
+    const skillDir = await primarySkillDir(repoRoot);
+    const skillDest = path.join(repoRoot, skillDir);
     await applyReleaseFiles(repoRoot, extractDir);
 
     await logInfo(repoRoot, "updater.upgrade", "running install.js");
@@ -229,7 +246,8 @@ export async function downloadAndUpgrade(repoRoot, updateInfo) {
 export async function rollback(repoRoot) {
   const timer = startTimer();
   const backupSrc = path.join(repoRoot, BACKUP_DIR);
-  const dest = path.join(repoRoot, SKILL_DIR);
+  const skillDir = await primarySkillDir(repoRoot);
+  const dest = path.join(repoRoot, skillDir);
 
   const stat = await fs.stat(backupSrc).catch(() => null);
   if (!stat) {
