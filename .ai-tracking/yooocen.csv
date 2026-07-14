@@ -88,3 +88,4 @@ yooocen,9,9,true,722e020acc96221e8db779a8517b878775bfebb9,2026-07-07 14:23:33,do
 yooocen,105,105,true,a8b9b5d08d66d5b4261487c3335dd38afcd43568,2026-07-07 15:30:25,refactor: 配置项键名由 snake_case 改为小驼峰
 yooocen,4994,4994,true,e4b2d4cdb2eab871bb4661b9181b5b3d49a69756,2026-07-07 15:47:59,refactor: 用 src→lib 递归拷贝替代 bundle.js 打包
 yooocen,88,88,true,d23811ca66b99f54c4c2febb86b6150894f5ae20,2026-07-14 11:32:31,fix: updater 的 SKILL_DIR 动态解析 .opencode/.claude/.cac，不再硬编码
+yooocen,59,59,true,f1fbb449e0a189bf438346b76888bdddeb531701,2026-07-14 11:36:07,fix: git hook 运行时动态检测 .opencode/.claude/.cac 三个可用目录
