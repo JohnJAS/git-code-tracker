@@ -21,7 +21,7 @@ test("installer creates project-local files and hooks", async () => {
   assert.equal((await checkInstall(repoRoot)).ok, true);
   const hook = await fs.readFile(path.join(repoRoot, ".git", "hooks", "pre-commit"), "utf8");
   assert.match(hook, /ai-code-tracker begin/);
-  assert.match(hook, /\.opencode\/skills\/ai-code-tracker\/scripts\/commit-stats\.js/);
+  assert.match(hook, /\$\{__ait_skill\}\/scripts\/commit-stats\.js/);
   assert.match(await fs.readFile(path.join(repoRoot, ".git", "hooks", "pre-push"), "utf8"), /pre-push/);
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /pending-lines\.json/);
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /errors\.log/);
@@ -77,7 +77,7 @@ test("installer repairs tracker block after terminal exec hooks", async () => {
   assert.equal((hook.match(/ai-code-tracker begin/g) ?? []).length, 1);
   assert.ok(hook.indexOf("ai-code-tracker begin") < hook.indexOf("exec prek"));
   assert.doesNotMatch(hook, /\.ai-tracking\/bin\/commit-stats\.js/);
-  assert.match(hook, /\.opencode\/skills\/ai-code-tracker\/scripts\/commit-stats\.js/);
+  assert.match(hook, /\$\{__ait_skill\}\/scripts\/commit-stats\.js/);
 });
 
 test("installer repairs old hook command that depends on .ai-tracking/bin", async () => {
@@ -102,7 +102,7 @@ test("installer repairs old hook command that depends on .ai-tracking/bin", asyn
 
   const hook = await fs.readFile(hookPath, "utf8");
   assert.doesNotMatch(hook, /\.ai-tracking\/bin\/commit-stats\.js/);
-  assert.match(hook, /\.opencode\/skills\/ai-code-tracker\/scripts\/commit-stats\.js/);
+  assert.match(hook, /\$\{__ait_skill\}\/scripts\/commit-stats\.js/);
 });
 
 test("installer updates existing AI Code Tracker AGENTS rule", async () => {

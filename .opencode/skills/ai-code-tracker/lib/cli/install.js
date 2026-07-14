@@ -40,21 +40,23 @@ function skillRelativeDir(repoRoot) {
   return rel;
 }
 
-function hookScriptsForRepo(repoRoot) {
-  const base = skillRelativeDir(repoRoot);
+function hookScriptsForRepo() {
   return {
-    "pre-commit": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" pre-commit`),
-    "post-commit": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" post-commit`),
-    "pre-push": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" pre-push`),
-    "post-rewrite": hookScript(`node --experimental-vm-modules "${base}/scripts/commit-stats.js" prune`),
+    "pre-commit": hookScript("commit-stats.js", "pre-commit"),
+    "post-commit": hookScript("commit-stats.js", "post-commit"),
+    "pre-push": hookScript("commit-stats.js", "pre-push"),
+    "post-rewrite": hookScript("commit-stats.js", "prune"),
   };
 }
 
-function hookScript(command) {
+function hookScript(script, args) {
   const logDir = ".ai-tracking";
   const tag = "[ai-code-tracker]";
   return [
-    `__ait_err=$(${command} 2>&1) && __ait_rc=0 || __ait_rc=$?`,
+    `__ait_skill=".opencode/skills/ai-code-tracker"`,
+    `[ -d "$__ait_skill" ] || __ait_skill=".claude/skills/ai-code-tracker"`,
+    `[ -d "$__ait_skill" ] || __ait_skill=".cac/skills/ai-code-tracker"`,
+    `__ait_err=$(node --experimental-vm-modules "\${__ait_skill}/scripts/${script}" ${args} 2>&1) && __ait_rc=0 || __ait_rc=$?`,
     `if [ $__ait_rc -ne 0 ]; then`,
     `  echo "${tag} hook failed (exit $__ait_rc), continuing anyway" >&2`,
     `  echo "$__ait_err" >&2`,
@@ -76,7 +78,7 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
 
   await logInfo(repoRoot, `install.${mode}`, "enter");
 
-  const hookScripts = hookScriptsForRepo(repoRoot);
+  const hookScripts = hookScriptsForRepo();
 
   if (mode === "uninstall") {
     await uninstallFromRepo(repoRoot, hookScripts);
@@ -104,7 +106,7 @@ export async function runInstall(args = process.argv.slice(2), options = {}) {
   return result;
 }
 
-export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
+export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo()) {
   const missing = [];
   const mismatches = [];
 
@@ -175,7 +177,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo(re
   return { ok: missing.length === 0 && mismatches.length === 0, missing, mismatches };
 }
 
-export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
+export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo()) {
   await ensureWritableRepo(repoRoot);
 
   const tool = await detectActiveTool();
@@ -248,7 +250,7 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
   await ensureAgentsRule(repoRoot, tool);
 }
 
-async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo(repoRoot)) {
+async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo()) {
   await ensureWritableRepo(repoRoot);
 
   // Remove git hook blocks
