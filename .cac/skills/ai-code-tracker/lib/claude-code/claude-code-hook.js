@@ -47,7 +47,7 @@ export async function runClaudeCodeHook(mode, options = {}) {
   if (!filePath) return;
 
   const absolutePath = path.resolve(toPosixPath(cwd), toPosixPath(filePath));
-  const relative = path.relative(repoRoot, absolutePath).replaceAll(path.sep, "/");
+  const relative = await relativeToRepo(repoRoot, absolutePath);
 
   if (shouldIgnore(relative)) return;
 
@@ -228,6 +228,24 @@ function toPosixPath(p) {
 
 function originalSnapshotName(relative) {
   return `original-${relative.replace(/[^a-zA-Z0-9._-]/g, "_")}.json`;
+}
+
+async function relativeToRepo(repoRoot, absolutePath) {
+  const [canonicalRoot, canonicalPath] = await Promise.all([
+    canonicalizePath(repoRoot),
+    canonicalizePath(absolutePath),
+  ]);
+  return path.relative(canonicalRoot, canonicalPath).replaceAll(path.sep, "/");
+}
+
+async function canonicalizePath(filePath) {
+  try {
+    return await fs.realpath(filePath);
+  } catch {
+    const parent = path.dirname(filePath);
+    if (parent === filePath) { return path.resolve(filePath); }
+    return path.join(await canonicalizePath(parent), path.basename(filePath));
+  }
 }
 
 async function exists(file) {

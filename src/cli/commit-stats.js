@@ -194,7 +194,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const csvPath = authorCsvPath(repoRoot, author);
   const autoTracking = config.autoTrackingCommit !== false;
 
-  const csvRelPath = path.relative(repoRoot, csvPath);
+  const csvRelPath = path.relative(repoRoot, csvPath).replaceAll(path.sep, "/");
   const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
   const currentBlob = await gitImpl(["rev-parse", `HEAD:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
   const csvChangedInCommit = parentBlob !== null && parentBlob !== currentBlob;
