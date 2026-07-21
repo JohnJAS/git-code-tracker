@@ -446,3 +446,19 @@ npm test
 # 修改 src 后重新构建 lib（自动同步到 .opencode/、.claude/ 和 .cac/）
 npm run build
 ```
+
+## Upload Smoke Test
+
+After starting `ai-code-tracker-server`, verify the post-push upload path with a temporary Git repository:
+
+```powershell
+npm run test:upload
+```
+
+The default endpoint is `http://127.0.0.1:8080/v1/records`. Use another server with:
+
+```powershell
+npm run test:upload -- --url http://tracker.internal:8080/v1/records
+```
+
+Each run creates a temporary repository and a real commit with a new SHA, uploads its CSV record, and then removes the temporary repository. It writes one test record to the server dashboard.
