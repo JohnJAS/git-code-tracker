@@ -76,14 +76,15 @@ function myersDiff(a, b) {
 }
 
 export async function loadConfig(repoRoot) {
+  const defaults = { enabled: true, countBlankLines: false, trackingCommitSuffix: "[ai-tracking]", autoTrackingCommit: true, uploadUrl: "" };
   try {
-    return JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
+    return { ...defaults, ...JSON.parse(await fs.readFile(configPath(repoRoot), "utf8")) };
   } catch (error) {
     if (error.code !== "ENOENT") {
       const { logError } = await import("./logger.js");
       await logError(repoRoot, "loadConfig", "failed to read config, using defaults", { error: error.message });
     }
-    return { enabled: true, countBlankLines: false, trackingCommitSuffix: "[ai-tracking]", autoTrackingCommit: true };
+    return defaults;
   }
 }
 
