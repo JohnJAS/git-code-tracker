@@ -41,12 +41,12 @@ test("installer is idempotent", async () => {
   assert.equal(hook.match(/ai-code-tracker begin/g).length, 1);
 });
 
-test("installer injects post-push upload hook and ignores its outbox", async () => {
+test("installer does not create a non-standard post-push hook and ignores its outbox", async () => {
   const repoRoot = await fakeRepo();
 
   await installIntoRepo(repoRoot);
 
-  assert.match(await fs.readFile(path.join(repoRoot, ".git", "hooks", "post-push"), "utf8"), /commit-stats\.js" post-push/);
+  await assert.rejects(fs.access(path.join(repoRoot, ".git", "hooks", "post-push")));
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /\.ai-tracking\/upload-outbox\.json/);
 });
 

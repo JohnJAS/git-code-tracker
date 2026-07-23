@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runPushUpload, saveUploadOutbox } from "../src/tracker/pushUpload.js";
+import { loadUploadOutbox, runPushUpload, saveUploadOutbox } from "../src/tracker/pushUpload.js";
 
 async function fakeRepo(uploadUrl = "") {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-upload-"));
@@ -34,4 +34,23 @@ test("retries outbox before newly pushed records", async () => {
   });
   assert.deepEqual(sent.map((batch) => batch.records), [[oldRecord], [record]]);
   assert.equal(result.uploaded, 2);
+});
+
+test("keeps only the failed outbox batch and returns its HTTP error", async () => {
+  const repoRoot = await fakeRepo("http://tracker.test/v1/records");
+  const firstBatch = { repository_url: "github.com/acme/demo", records: [{ ...record, commit_id: "b".repeat(40) }] };
+  const failedBatch = { repository_url: "github.com/acme/demo", records: [{ ...record, commit_id: "c".repeat(40) }] };
+  await saveUploadOutbox(repoRoot, [firstBatch, failedBatch]);
+  let attempts = 0;
+
+  const result = await runPushUpload({
+    repoRoot,
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1 ? { ok: true } : { ok: false, status: 503, statusText: "Service Unavailable" };
+    },
+  });
+
+  assert.deepEqual(result, { uploaded: 1, queued: 1, error: "HTTP 503 Service Unavailable" });
+  assert.deepEqual(await loadUploadOutbox(repoRoot), [failedBatch]);
 });

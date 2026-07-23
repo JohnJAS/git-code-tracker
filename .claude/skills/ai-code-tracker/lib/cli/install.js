@@ -45,7 +45,6 @@ function hookScriptsForRepo() {
     "pre-commit": hookScript("commit-stats.js", "pre-commit"),
     "post-commit": hookScript("commit-stats.js", "post-commit"),
     "pre-push": hookScript("commit-stats.js", "pre-push"),
-    "post-push": hookScript("commit-stats.js", "post-push"),
     "post-rewrite": hookScript("commit-stats.js", "prune"),
   };
 }
@@ -116,7 +115,7 @@ export async function checkInstall(repoRoot, hookScripts = hookScriptsForRepo())
   const isClaude = tool === "claude";
   const isCac = tool === "codeagent-cli";
 
-  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-push", "post-rewrite"]) {
+  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
     if (!await hasEffectiveHook(hook, hookScripts[hookName])) { missing.push(`${hookName} hook`); }
   }
@@ -200,11 +199,10 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
   }
   await updateGitignore(repoRoot);
 
-  await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push", "post-push", "post-rewrite"] });
+  await logInfo(repoRoot, "install", "injecting git hooks", { hooks: ["pre-commit", "post-commit", "pre-push", "post-rewrite"] });
   await injectHook(repoRoot, "pre-commit", hookScripts["pre-commit"]);
   await injectHook(repoRoot, "post-commit", hookScripts["post-commit"]);
   await injectHook(repoRoot, "pre-push", hookScripts["pre-push"]);
-  await injectHook(repoRoot, "post-push", hookScripts["post-push"]);
   await injectHook(repoRoot, "post-rewrite", hookScripts["post-rewrite"]);
 
   // opencode: plugin + commands
@@ -256,7 +254,7 @@ async function uninstallFromRepo(repoRoot, hookScripts = hookScriptsForRepo()) {
   await ensureWritableRepo(repoRoot);
 
   // Remove git hook blocks
-  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-push", "post-rewrite"]) {
+  for (const hookName of ["pre-commit", "post-commit", "pre-push", "post-rewrite"]) {
     const hook = path.join(repoRoot, ".git", "hooks", hookName);
     if (!await exists(hook)) { continue; }
     let content = await fs.readFile(hook, "utf8");

@@ -1,0 +1,2 @@
+﻿author,ai_lines,total_lines,is_ai_commit,commit_id,date,message
+JohnJAS,0,199,false,9f41a6915314d6bba0400d9fd4d5e3355852ddc6,2026-07-23 16:47:09,fix. use git hook pre-push instead

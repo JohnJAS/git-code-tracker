@@ -14,9 +14,16 @@ export async function runPushUpload({ cwd = process.cwd(), repoRoot, stdin = "",
 
   let uploaded = 0;
   const pending = await loadUploadOutbox(root);
-  for (const batch of pending) {
-    if (await postBatch(config.uploadUrl, batch, fetchImpl)) uploaded += batch.records.length;
-    else return { uploaded, queued: pending.length };
+  for (let index = 0; index < pending.length; index += 1) {
+    const batch = pending[index];
+    const response = await postBatch(config.uploadUrl, batch, fetchImpl);
+    if (response.ok) {
+      uploaded += batch.records.length;
+      continue;
+    }
+    const queuedBatches = pending.slice(index);
+    await saveUploadOutbox(root, queuedBatches);
+    return { uploaded, queued: queuedBatches.length, error: response.error };
   }
   await saveUploadOutbox(root, []);
 
@@ -26,9 +33,10 @@ export async function runPushUpload({ cwd = process.cwd(), repoRoot, stdin = "",
   if (records.length === 0) return { uploaded };
   const repositoryURL = (await gitRawImpl(["remote", "get-url", "origin"], { cwd: root })).trim();
   const batch = { repository_url: repositoryURL, records };
-  if (await postBatch(config.uploadUrl, batch, fetchImpl)) return { uploaded: uploaded + records.length };
+  const response = await postBatch(config.uploadUrl, batch, fetchImpl);
+  if (response.ok) return { uploaded: uploaded + records.length };
   await saveUploadOutbox(root, [batch]);
-  return { uploaded, queued: 1 };
+  return { uploaded, queued: 1, error: response.error };
 }
 
 async function pushedCommitIDs(stdin, repoRoot, gitRawImpl) {
@@ -46,8 +54,12 @@ async function pushedCommitIDs(stdin, repoRoot, gitRawImpl) {
 async function postBatch(url, batch, fetchImpl) {
   try {
     const response = await fetchImpl(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(batch) });
-    return response.ok;
-  } catch { return false; }
+    if (response.ok) return { ok: true };
+    const details = [response.status, response.statusText].filter(Boolean).join(" ");
+    return { ok: false, error: `HTTP ${details || "request failed"}` };
+  } catch (error) {
+    return { ok: false, error: error?.message ?? String(error) };
+  }
 }
 
 export async function loadUploadOutbox(repoRoot) {
