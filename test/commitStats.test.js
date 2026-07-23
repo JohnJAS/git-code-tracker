@@ -417,6 +417,31 @@ test("pre-push archives and clears pending tracking files", async () => {
   );
 });
 
+test("pre-push uploads the announced refs after archiving tracking files", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
+  await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });
+  await fs.writeFile(pendingLinesPath(repoRoot), JSON.stringify({ "src/a.js": ["ai"] }), "utf8");
+  const stdin = `refs/heads/main ${"a".repeat(40)} refs/heads/main ${"0".repeat(40)}\n`;
+  const upload = { uploaded: 1 };
+  const uploadCalls = [];
+
+  const result = await runCommitStats("pre-push", {
+    cwd: repoRoot,
+    repoRoot,
+    stdin,
+    now: new Date("2026-05-06T03:04:05Z"),
+    git: async () => "",
+    runPushUpload: async (options) => {
+      uploadCalls.push(options);
+      return upload;
+    },
+  });
+
+  assert.deepEqual(result.upload, upload);
+  assert.deepEqual(uploadCalls, [{ repoRoot, cwd: repoRoot, stdin }]);
+  await assert.rejects(fs.access(pendingLinesPath(repoRoot)));
+});
+
 test("post-commit skips tracking commit with suffix at end of message", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-commit-"));
   await fs.mkdir(path.join(repoRoot, ".ai-tracking"), { recursive: true });

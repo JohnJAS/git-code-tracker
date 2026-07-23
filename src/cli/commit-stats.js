@@ -21,11 +21,8 @@ export async function runCommitStats(mode, options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const gitImpl = options.git ?? git;
   const gitRawImpl = options.gitRaw ?? gitRaw;
+  const pushUploadImpl = options.runPushUpload ?? runPushUpload;
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
-
-  if (mode === "post-push") {
-    return runPushUpload({ repoRoot, cwd, stdin: options.stdin ?? await readStdin() });
-  }
 
   if (env.AI_CODE_TRACKER_SKIP === "1") {
     await logInfo(repoRoot, "commit-stats", "skipped: skip-env", { mode });
@@ -53,7 +50,22 @@ export async function runCommitStats(mode, options = {}) {
     return runPostCommit({ repoRoot, gitImpl, gitRawImpl, env });
   }
   if (mode === "pre-push") {
-    return runPrePush({ repoRoot, now: options.now });
+    const archiveResult = await runPrePush({ repoRoot, now: options.now });
+    await logInfo(repoRoot, "commit-stats.pre-push", "upload enter");
+    const stdin = options.stdin ?? (config.uploadUrl ? await readStdin() : "");
+    const uploadResult = await pushUploadImpl({ repoRoot, cwd, stdin });
+    if (uploadResult.skipped) {
+      await logInfo(repoRoot, "commit-stats.pre-push", `upload skipped: ${uploadResult.skipped}`);
+    } else if (uploadResult.queued) {
+      await logError(repoRoot, "pre-push", "upload failed, batch queued for retry", {
+        uploaded: uploadResult.uploaded,
+        queued: uploadResult.queued,
+        error: uploadResult.error ?? "POST returned non-ok",
+      });
+    } else {
+      await logInfo(repoRoot, "pre-push", "upload complete", { uploaded: uploadResult.uploaded ?? 0 });
+    }
+    return { ...archiveResult, upload: uploadResult };
   }
 
   throw new Error(`Unknown commit-stats mode: ${mode}`);

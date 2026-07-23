@@ -449,7 +449,7 @@ npm run build
 
 ## Upload Smoke Test
 
-After starting `ai-code-tracker-server`, verify the post-push upload path with a temporary Git repository:
+After starting `ai-code-tracker-server`, verify the push upload path with a temporary Git repository:
 
 ```powershell
 npm run test:upload
