@@ -65,5 +65,5 @@ Tell the user which file is blocking tracking. After the user releases the file 
 - Before `git push`, pending tracking files are archived under `.ai-tracking/archive/` and removed from active tracking so old AI lines do not affect the next editing session.
 - Temporary file and lock failures are logged to `.ai-tracking/errors.log`; the log is ignored by git and the failed operation can be retried after the lock is cleared.
 - Never include `[ai-tracking]` in commit messages manually. The tracker appends this suffix automatically via `git commit --amend` after recording the commit to CSV. If the suffix is already present, the post-commit hook skips the commit entirely, causing it to never be tracked in the CSV.
-- Claude Code hooks in `.claude/settings.json` track edits made by Claude Code's Edit/Write/NotebookEdit tools.
+- The OpenCode project plugin in `.opencode/plugins/ai-code-tracker.js` tracks edits made by OpenCode tools.
 - See `references/design.md` for details.

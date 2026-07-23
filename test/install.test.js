@@ -24,6 +24,7 @@ test("installer creates project-local files and hooks", async () => {
   assert.match(hook, /\$\{__ait_skill\}\/scripts\/commit-stats\.js/);
   assert.match(await fs.readFile(path.join(repoRoot, ".git", "hooks", "pre-push"), "utf8"), /pre-push/);
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /pending-lines\.json/);
+  assert.equal(JSON.parse(await fs.readFile(configPath(repoRoot), "utf8")).uploadUrl, "");
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /errors\.log/);
   assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /\.ai-tracking\/archive\//);
   assert.match(await fs.readFile(path.join(repoRoot, "AGENTS.md"), "utf8"), /ai-code-tracker/);
@@ -38,6 +39,15 @@ test("installer is idempotent", async () => {
 
   const hook = await fs.readFile(path.join(repoRoot, ".git", "hooks", "pre-commit"), "utf8");
   assert.equal(hook.match(/ai-code-tracker begin/g).length, 1);
+});
+
+test("installer injects post-push upload hook and ignores its outbox", async () => {
+  const repoRoot = await fakeRepo();
+
+  await installIntoRepo(repoRoot);
+
+  assert.match(await fs.readFile(path.join(repoRoot, ".git", "hooks", "post-push"), "utf8"), /commit-stats\.js" post-push/);
+  assert.match(await fs.readFile(path.join(repoRoot, ".gitignore"), "utf8"), /\.ai-tracking\/upload-outbox\.json/);
 });
 
 test("installer puts tracker before terminal exec hooks", async () => {

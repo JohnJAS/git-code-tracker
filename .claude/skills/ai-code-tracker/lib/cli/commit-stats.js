@@ -12,6 +12,7 @@ import { atomicWriteJson, atomicWriteText } from "../tracker/lock.js";
 import { archiveDir, authorCsvPath, pendingCommitPath, pendingLinesPath, snapshotDir, trackingMessagePath } from "../tracker/paths.js";
 import { loadConfig } from "../tracker/shared.js";
 import { logInfo, logError, startTimer } from "../tracker/logger.js";
+import { runPushUpload } from "../tracker/pushUpload.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +22,10 @@ export async function runCommitStats(mode, options = {}) {
   const gitImpl = options.git ?? git;
   const gitRawImpl = options.gitRaw ?? gitRaw;
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
+
+  if (mode === "post-push") {
+    return runPushUpload({ repoRoot, cwd, stdin: options.stdin ?? await readStdin() });
+  }
 
   if (env.AI_CODE_TRACKER_SKIP === "1") {
     await logInfo(repoRoot, "commit-stats", "skipped: skip-env", { mode });
@@ -194,7 +199,7 @@ async function runPostCommit({ repoRoot, gitImpl, gitRawImpl, env }) {
   const csvPath = authorCsvPath(repoRoot, author);
   const autoTracking = config.autoTrackingCommit !== false;
 
-  const csvRelPath = path.relative(repoRoot, csvPath);
+  const csvRelPath = path.relative(repoRoot, csvPath).replaceAll(path.sep, "/");
   const parentBlob = await gitImpl(["rev-parse", `HEAD~1:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
   const currentBlob = await gitImpl(["rev-parse", `HEAD:${csvRelPath}`], { cwd: repoRoot }).catch(() => null);
   const csvChangedInCommit = parentBlob !== null && parentBlob !== currentBlob;
@@ -438,5 +443,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   runCommitStats(process.argv[2]).catch((error) => {
     console.error(`[ai-code-tracker] ${error.message}`);
     process.exitCode = 1;
+  });
+}
+
+function readStdin() {
+  return new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => { data += chunk; });
+    process.stdin.on("end", () => resolve(data));
+    process.stdin.on("error", () => resolve(""));
   });
 }

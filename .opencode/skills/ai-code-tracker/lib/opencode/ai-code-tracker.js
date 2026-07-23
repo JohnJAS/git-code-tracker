@@ -19,7 +19,7 @@ let bashFallbackTimer = null;
 export async function recordEditedFile({ cwd = process.cwd(), filePath, before, after = "", replace = false }) {
   const timer = startTimer();
   const repoRoot = await gitRepoRoot(cwd);
-  const relative = path.relative(repoRoot, path.resolve(cwd, filePath)).replaceAll(path.sep, "/");
+  const relative = await relativeToRepo(repoRoot, path.resolve(cwd, filePath));
 
   const config = await loadConfig(repoRoot);
   if (!config.enabled) {
@@ -263,6 +263,24 @@ function extractFilePath(tool, args) {
 
 function snapshotKey(cwd, filePath) {
   return path.resolve(cwd, filePath);
+}
+
+async function relativeToRepo(repoRoot, absolutePath) {
+  const [canonicalRoot, canonicalPath] = await Promise.all([
+    canonicalizePath(repoRoot),
+    canonicalizePath(absolutePath),
+  ]);
+  return path.relative(canonicalRoot, canonicalPath).replaceAll(path.sep, "/");
+}
+
+async function canonicalizePath(filePath) {
+  try {
+    return await fs.realpath(filePath);
+  } catch {
+    const parent = path.dirname(filePath);
+    if (parent === filePath) { return path.resolve(filePath); }
+    return path.join(await canonicalizePath(parent), path.basename(filePath));
+  }
 }
 
 function clearPendingFileEdited(key) {

@@ -32,6 +32,10 @@ export function availableUpdatePath(repoRoot) {
   return path.join(trackerDir(repoRoot), "available-update.json");
 }
 
+export function uploadOutboxPath(repoRoot) {
+  return path.join(trackerDir(repoRoot), "upload-outbox.json");
+}
+
 export function backupDir(repoRoot) {
   return path.join(trackerDir(repoRoot), "backup-pre-update");
 }
