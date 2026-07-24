@@ -1,3 +1,4 @@
 ﻿author,ai_lines,total_lines,is_ai_commit,commit_id,date,message
 JohnJAS,0,199,false,9f41a6915314d6bba0400d9fd4d5e3355852ddc6,2026-07-23 16:47:09,fix. use git hook pre-push instead
 JohnJAS,0,68,false,509ad71e7821b95ae3d1a5c5c7ebc6e12fb24641,2026-07-23 20:31:54,feat: 新增手动发布工作流
+JohnJAS,0,106,true,f4b52f99ddda32633c3e03b7e552097068a7965c,2026-07-24 20:12:49,feat: 构建时注入版本号到分发安装器
