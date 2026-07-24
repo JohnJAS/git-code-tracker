@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { checkInstall, installIntoRepo, moduleDirFromFileUrl } from "../src/cli/install.js";
@@ -12,6 +13,32 @@ async function fakeRepo() {
   await fs.mkdir(path.join(repoRoot, ".git", "hooks"), { recursive: true });
   return repoRoot;
 }
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+async function builtInstaller() {
+  const distributionRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ai-build-"));
+  execFileSync("git", ["init"], { cwd: distributionRoot, stdio: "pipe" });
+  await fs.cp(path.join(projectRoot, "src"), path.join(distributionRoot, "src"), { recursive: true });
+  await fs.mkdir(path.join(distributionRoot, "scripts"));
+  await fs.copyFile(path.join(projectRoot, "scripts", "build.js"), path.join(distributionRoot, "scripts", "build.js"));
+  await fs.copyFile(path.join(projectRoot, "package.json"), path.join(distributionRoot, "package.json"));
+
+  execFileSync(process.execPath, ["scripts/build.js"], { cwd: distributionRoot, stdio: "pipe" });
+  const installer = path.join(distributionRoot, ".opencode", "skills", "ai-code-tracker", "lib", "cli", "install.js");
+  return import(pathToFileURL(installer).href);
+}
+
+test("built installer records the release version", async () => {
+  const repoRoot = await fakeRepo();
+  const pkg = JSON.parse(await fs.readFile(path.join(projectRoot, "package.json"), "utf8"));
+  const { installIntoRepo: installBuilt } = await builtInstaller();
+
+  await installBuilt(repoRoot);
+
+  const config = JSON.parse(await fs.readFile(configPath(repoRoot), "utf8"));
+  assert.equal(config.installedVersion, pkg.version);
+});
 
 test("installer creates project-local files and hooks", async () => {
   const repoRoot = await fakeRepo();
