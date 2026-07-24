@@ -1,6 +1,6 @@
 {
   "name": "ai-commit-statistic-skill",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "private": true,
   "homepage": "https://github.com/yooocen/git-code-tracker",
