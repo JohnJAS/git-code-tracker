@@ -17,6 +17,7 @@ const execFileAsync = promisify(execFile);
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
+const PACKAGED_VERSION = "__AI_CODE_TRACKER_VERSION__";
 
 export function moduleDirFromFileUrl(fileUrl, pathModule = path, fileUrlToPath = fileURLToPath) {
   return pathModule.dirname(fileUrlToPath(fileUrl));
@@ -189,13 +190,8 @@ export async function installIntoRepo(repoRoot, hookScripts = hookScriptsForRepo
 
   // Shared: config + gitignore + git hooks
   if (!await exists(configPath(repoRoot))) {
-    let installedVersion = "0.1.0";
-    try {
-      const pkg = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
-      if (pkg.name === "ai-commit-statistic-skill") { installedVersion = pkg.version || installedVersion; }
-    } catch {}
     await logInfo(repoRoot, "install", "writing tracker config");
-    await atomicWriteJson(configPath(repoRoot), expectedConfigObject(installedVersion));
+    await atomicWriteJson(configPath(repoRoot), expectedConfigObject(PACKAGED_VERSION));
   }
   await updateGitignore(repoRoot);
 
@@ -564,7 +560,7 @@ function expectedConfigObject(version) {
     trackingCommitSuffix: "[ai-tracking]",
     autoTrackingCommit: true,
     uploadUrl: "",
-    installedVersion: version || "0.1.0",
+    installedVersion: version,
     sourceRepo: "https://github.com/yooocen/git-code-tracker",
     checkUpdates: true,
     updateCheckIntervalHours: 24,
