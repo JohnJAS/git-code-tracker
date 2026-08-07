@@ -17,7 +17,7 @@ const execFileAsync = promisify(execFile);
 
 const BEGIN = "# ai-code-tracker begin";
 const END = "# ai-code-tracker end";
-const PACKAGED_VERSION = "1.0.5";
+const PACKAGED_VERSION = "1.0.6";
 
 export function moduleDirFromFileUrl(fileUrl, pathModule = path, fileUrlToPath = fileURLToPath) {
   return pathModule.dirname(fileUrlToPath(fileUrl));
@@ -69,10 +69,14 @@ function hookScript(script, args) {
 }
 
 export async function runInstall(args = process.argv.slice(2), options = {}) {
-  const mode = args.includes("--uninstall") ? "uninstall"
-    : args.includes("--check") ? "check"
-    : args.includes("--repair") ? "repair"
-    : "install";
+  let mode = "install";
+  if (args.includes("--uninstall")) {
+    mode = "uninstall";
+  } else if (args.includes("--check")) {
+    mode = "check";
+  } else if (args.includes("--repair")) {
+    mode = "repair";
+  }
   const cwd = options.cwd ?? process.cwd();
   const repoRoot = options.repoRoot ?? await gitRepoRoot(cwd);
   const timer = startTimer();
@@ -368,7 +372,10 @@ const EXPECTED_GITIGNORE_LINES = [
 const CLAUDE_HOOK_MATCHER = "Edit|Write|NotebookEdit|Bash";
 
 function claudeHookCommand(tool = "claude") {
-  const base = tool === "codeagent-cli" ? ".cac" : ".claude";
+  let base = ".claude";
+  if (tool === "codeagent-cli") {
+    base = ".cac";
+  }
   return `node --experimental-vm-modules "${base}/skills/ai-code-tracker/scripts/claude-code-hook.js"`;
 }
 
@@ -466,7 +473,10 @@ async function updateGitignore(repoRoot) {
   if (await exists(gitignore)) { content = await fs.readFile(gitignore, "utf8"); }
   const additions = EXPECTED_GITIGNORE_LINES.filter((line) => !content.split(/\r?\n/).includes(line));
   if (additions.length === 0) { return; }
-  const prefix = content && !content.endsWith("\n") ? "\n" : "";
+  let prefix = "";
+  if (content && !content.endsWith("\n")) {
+    prefix = "\n";
+  }
   await fs.writeFile(gitignore, `${content}${prefix}${additions.join("\n")}\n`, "utf8");
 }
 
@@ -479,7 +489,10 @@ async function ensureAgentsRule(repoRoot, tool) {
     await fs.writeFile(agents, `${replaceAgentsRule(content, rule).trimEnd()}\n`, "utf8");
     return;
   }
-  const prefix = content && !content.endsWith("\n") ? "\n\n" : "";
+  let prefix = "";
+  if (content && !content.endsWith("\n")) {
+    prefix = "\n\n";
+  }
   await fs.writeFile(agents, `${content}${prefix}${rule}`, "utf8");
 }
 
@@ -530,9 +543,18 @@ function replaceAgentsRule(content, rule) {
   if (start === -1) { return content; }
   const nextHeading = content.indexOf("\n## ", start + marker.length);
   const before = content.slice(0, start).trimEnd();
-  const after = nextHeading === -1 ? "" : content.slice(nextHeading).trimStart();
-  const prefix = before ? `${before}\n\n` : "";
-  const suffix = after ? `\n\n${after}` : "";
+  let after = "";
+  if (nextHeading !== -1) {
+    after = content.slice(nextHeading).trimStart();
+  }
+  let prefix = "";
+  if (before) {
+    prefix = `${before}\n\n`;
+  }
+  let suffix = "";
+  if (after) {
+    suffix = `\n\n${after}`;
+  }
   return `${prefix}${rule.trimEnd()}${suffix}`;
 }
 
@@ -573,19 +595,33 @@ const CLAUDE_COMMAND_FILES = ["ai-install.md", "ai-repair.md", "ai-check.md", "a
 
 async function deployCommands(repoRoot, tool) {
   const scriptDir = moduleDirFromFileUrl(import.meta.url);
-  const commandSourceTool = tool === "codeagent-cli" ? "claude" : tool;
+  let commandSourceTool = tool;
+  if (tool === "codeagent-cli") {
+    commandSourceTool = "claude";
+  }
   let commandsDir = path.join(path.dirname(scriptDir), "commands", commandSourceTool);
   if (!await exists(commandsDir)) {
     const projectRoot = await gitRepoRoot(scriptDir);
-    const projectPlatformDir = tool === "opencode" ? ".opencode" : tool === "codeagent-cli" ? ".cac" : ".claude";
+    let projectPlatformDir = ".claude";
+    if (tool === "opencode") {
+      projectPlatformDir = ".opencode";
+    } else if (tool === "codeagent-cli") {
+      projectPlatformDir = ".cac";
+    }
     commandsDir = path.join(projectRoot, projectPlatformDir, "skills", "ai-code-tracker", "commands", commandSourceTool);
   }
-  const destDir = tool === "opencode"
-    ? path.join(repoRoot, ".opencode", "commands")
-    : tool === "codeagent-cli"
-      ? path.join(repoRoot, ".cac", "commands")
-      : path.join(repoRoot, ".claude", "commands");
-  const files = tool === "opencode" ? OPENCODE_COMMAND_FILES : CLAUDE_COMMAND_FILES;
+  let destDir;
+  if (tool === "opencode") {
+    destDir = path.join(repoRoot, ".opencode", "commands");
+  } else if (tool === "codeagent-cli") {
+    destDir = path.join(repoRoot, ".cac", "commands");
+  } else {
+    destDir = path.join(repoRoot, ".claude", "commands");
+  }
+  let files = CLAUDE_COMMAND_FILES;
+  if (tool === "opencode") {
+    files = OPENCODE_COMMAND_FILES;
+  }
 
   await fs.mkdir(destDir, { recursive: true });
   for (const file of files) {
@@ -609,9 +645,10 @@ async function ensureWritableRepo(repoRoot) {
 }
 
 function claudeSettingsPath(repoRoot, tool = "claude") {
-  return tool === "codeagent-cli"
-    ? path.join(repoRoot, ".cac", "settings.json")
-    : path.join(repoRoot, ".claude", "settings.json");
+  if (tool === "codeagent-cli") {
+    return path.join(repoRoot, ".cac", "settings.json");
+  }
+  return path.join(repoRoot, ".claude", "settings.json");
 }
 
 async function injectClaudeHooks(repoRoot, tool = "claude") {

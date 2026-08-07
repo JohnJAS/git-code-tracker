@@ -39,7 +39,8 @@ function myersDiff(a, b) {
 
   // Backtrack to produce the edit script
   const ops = [];
-  let x = n, y = m;
+  let x = n;
+  let y = m;
   for (let d = trace.length - 1; d >= 0; d--) {
     const vPrev = trace[d];
     const k = x - y;
@@ -52,7 +53,7 @@ function myersDiff(a, b) {
     const prevX = vPrev[offset + prevK];
     const prevY = prevX - prevK;
 
-    // Diagonal (keep)
+    // Diagonal keep
     while (x > prevX && y > prevY) {
       x--; y--;
       ops.push({ type: "keep", line: a[x] });
